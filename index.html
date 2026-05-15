@@ -45,6 +45,7 @@
   .g2 { grid-template-columns: repeat(2, 1fr); }
   .g3 { grid-template-columns: repeat(3, 1fr); }
   .g2_3 { grid-template-columns: 2fr 1fr 1fr; }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
 
   .card { background: var(--hvid); border-radius: 16px; padding: 20px 22px; box-shadow: 0 2px 12px rgba(0,91,115,0.08); display: flex; flex-direction: column; gap: 8px; }
   .card-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--t); }
@@ -114,7 +115,7 @@
 
   @media (max-width: 720px) {
     .g2_3 { grid-template-columns: 1fr 1fr; }
-    .g3 { grid-template-columns: 1fr 1fr; }
+    .g3, .g4 { grid-template-columns: 1fr 1fr; }
     .card-value { font-size: 28px; }
   }
   @media (max-width: 480px) {
@@ -328,23 +329,32 @@ function apiUrl(file) {
 
 async function fetchData() {
   if (!gh.owner || !gh.repo) return null;
+  const url = rawUrl();
+  console.log('Fetching:', url);
   try {
-    // Read via raw URL — no CORS issues, no token needed
-    const res = await fetch(rawUrl());
-    if (!res.ok) throw new Error(`data.json ikke fundet (HTTP ${res.status}) — er filen uploadet til GitHub?`);
+    const res = await fetch(url);
+    console.log('Response status:', res.status);
+    if (res.status === 404) throw new Error('data.json findes ikke på GitHub endnu — upload filen først');
+    if (!res.ok) throw new Error(`HTTP ${res.status} fra raw.githubusercontent.com`);
     const data = await res.json();
+    console.log('Data loaded, months:', data.months?.length);
+    return { data, sha: null }; // SHA hentes kun ved commit
+  } catch(e) {
+    console.error('fetchData fejl:', e.message);
+    return { error: e.message };
+  }
+}
 
-    // Get SHA via API — needed for committing
-    const shaRes = await fetch(apiUrl('data.json'), {
+async function getSHA() {
+  try {
+    const res = await fetch(apiUrl('data.json'), {
       headers: { Authorization: `Bearer ${gh.token}`, Accept: 'application/vnd.github+json' }
     });
-    if (!shaRes.ok) throw new Error(`Token fejl (HTTP ${shaRes.status}) — tjek dit GitHub token`);
-    const { sha } = await shaRes.json();
-
-    return { data, sha };
+    if (!res.ok) throw new Error(`Token fejl (HTTP ${res.status})`);
+    const json = await res.json();
+    return json.sha;
   } catch(e) {
-    console.error('fetchData:', e.message);
-    return null;
+    throw new Error(`Kunne ikke hente SHA: ${e.message}`);
   }
 }
 
@@ -374,8 +384,13 @@ async function init() {
   showLoading('Henter nyeste data...');
   const result = await fetchData();
 
-  if (!result) {
-    showError('Kunne ikke hente data fra GitHub. Tjek din opsætning.');
+  if (!result || result.error) {
+    const msg = result?.error || 'Ukendt fejl';
+    showError(`<strong>Fejl:</strong> ${msg}<br><br>
+      Tjek at:<br>
+      1. <code>data.json</code> er uploadet til <code>grimur-sdu/kpi-dashboard</code><br>
+      2. Repository er <strong>Public</strong><br>
+      3. Branch hedder <strong>main</strong>`);
     return;
   }
 
@@ -455,7 +470,7 @@ function render() {
   document.getElementById('dash').innerHTML = `
 
     <div class="section-row"><div class="section-title">📰 PR-indsats</div><div class="section-line"></div></div>
-    <div class="grid g2_3" style="align-items:start">
+    <div class="grid" style="grid-template-columns:2fr 3fr;align-items:start">
       ${card('#008AAF','PR i alt', totalPR(c), 'artikler', trend(totalPR(c), p?totalPR(p):null), spark(rPR,'#008AAF'),
         subItems([
           ['Promovering',      c.pr.promovering,       p?.pr.promovering],
@@ -464,6 +479,11 @@ function render() {
           ['Ekstern — dækning',c.pr.ekstern_daekning,  p?.pr.ekstern_daekning],
         ])
       )}
+      <div></div>
+    </div>
+
+    <div class="section-row"><div class="section-title">🌐 Hjemmeside</div><div class="section-line"></div></div>
+    <div class="grid g2" style="max-width:440px">
       ${card('#007696','Hjemmesidebesøg', fmt(c.hjemmeside.besøg), 'besøg', trend(c.hjemmeside.besøg, p?.hjemmeside.besøg), spark(rHj,'#007696'))}
       ${card('#005B73','Session tid', c.hjemmeside.session_tid, 'min.', trend(c.hjemmeside.session_tid, p?.hjemmeside.session_tid), spark(rSes,'#005B73'))}
     </div>
@@ -485,22 +505,17 @@ function render() {
     </div>
 
     <div class="section-row"><div class="section-title">📸 Instagram</div><div class="section-line"></div></div>
-    <div class="grid g3">
+    <div class="grid g4">
       ${card('#C30151','Visninger', fmt(c.ig.visninger), 'visn.', trend(c.ig.visninger, p?.ig.visninger), spark(rIGv,'#C30151'))}
       ${card('#008AAF','Interaktioner', fmt(c.ig.interaktioner), 'inter.', trend(c.ig.interaktioner, p?.ig.interaktioner), spark(rIGi,'#008AAF'))}
       ${card('#007696','Antal delt', fmt(c.ig.delt), 'delt', trend(c.ig.delt, p?.ig.delt), spark(rIGd,'#007696'))}
+      ${card('#C30151','Nye følgere', fmt(c.følgere.ig), 'flg.', trend(c.følgere.ig, p?.følgere.ig), spark(rFlIG,'#C30151'))}
     </div>
 
     <div class="section-row"><div class="section-title">👍 Facebook</div><div class="section-line"></div></div>
-    <div class="grid" style="grid-template-columns:1fr 2fr">
-      ${card('#1877F2','Visninger', fmt(c.fb.visninger), 'visn.', trend(c.fb.visninger, p?.fb.visninger), spark(rFBv,'#1877F2'))}
-      <div></div>
-    </div>
-
-    <div class="section-row"><div class="section-title">👥 Nye følgere</div><div class="section-line"></div></div>
     <div class="grid g2" style="max-width:440px">
-      ${card('#C30151','Nye følgere — Instagram', fmt(c.følgere.ig), 'flg.', trend(c.følgere.ig, p?.følgere.ig), spark(rFlIG,'#C30151'))}
-      ${card('#1877F2','Nye følgere — Facebook', fmt(c.følgere.fb), 'flg.', trend(c.følgere.fb, p?.følgere.fb), spark(rFlFB,'#1877F2'))}
+      ${card('#1877F2','Visninger', fmt(c.fb.visninger), 'visn.', trend(c.fb.visninger, p?.fb.visninger), spark(rFBv,'#1877F2'))}
+      ${card('#1877F2','Nye følgere', fmt(c.følgere.fb), 'flg.', trend(c.følgere.fb, p?.følgere.fb), spark(rFlFB,'#1877F2'))}
     </div>
   `;
 
@@ -534,7 +549,8 @@ async function deleteMonth() {
 
   showLoading('Henter nyeste data...');
   const result = await fetchData();
-  if (!result) { toast('❌ Kunne ikke hente data', true); render(); return; }
+  if (!result || result.error) { toast(`❌ ${result?.error || 'Kunne ikke hente data'}`, true); render(); return; }
+  result.sha = await getSHA();
 
   result.data.months = result.data.months.filter((_,i) => i !== sel);
   try {
@@ -555,12 +571,12 @@ async function openModal() {
 
   // Always fetch fresh data before opening form
   const result = await fetchData();
-  if (result) {
+  if (result && !result.error) {
     state = result.data;
     document.getElementById('f-label').value = suggestNext();
     document.getElementById('modal-sub').textContent = `Seneste data: ${state.months[state.months.length-1]?.label || '–'} · Udfyld tallene for den nye periode`;
   } else {
-    document.getElementById('modal-sub').textContent = '⚠️ Kunne ikke hente nyeste data — kontrollér din forbindelse.';
+    document.getElementById('modal-sub').textContent = `⚠️ ${result?.error || 'Kunne ikke hente data'} — kontrollér din forbindelse.`;
   }
   document.getElementById('btn-gem').disabled = false;
 }
@@ -582,7 +598,10 @@ async function saveMonth() {
   try {
     // 1. Fetch the absolute latest data (in case someone else updated since modal opened)
     const result = await fetchData();
-    if (!result) throw new Error('Kunne ikke hente data fra GitHub');
+    if (!result || result.error) throw new Error(result?.error || 'Kunne ikke hente data fra GitHub');
+
+    // 1b. Get SHA for commit
+    result.sha = await getSHA();
 
     // 2. Add new month
     result.data.months.push({
