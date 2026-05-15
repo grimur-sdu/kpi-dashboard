@@ -3,12 +3,68 @@
     {
       "id": "apr-2025",
       "label": "Apr 2025",
-      "pr": { "promovering": 4, "fortaellinger": 3, "ekstern_pm": 2, "ekstern_daekning": 1 },
-      "hjemmeside": { "besøg": 1890, "session_tid": 2.4 },
-      "tilmeldinger": { "gavekort": 11, "gaarden": 5, "roskilde": 31, "sommerlejr": 8, "lobeloebet": 0 },
-      "ig": { "visninger": 7200, "interaktioner": 312, "delt": 44 },
-      "fb": { "visninger": 3100 },
-      "følgere": { "ig": 47, "fb": 23 }
+      "pr": {
+        "promovering": 4,
+        "fortaellinger": 3,
+        "ekstern_pm": 2,
+        "ekstern_daekning": 1
+      },
+      "hjemmeside": {
+        "besøg": 1890,
+        "session_tid": 2.4
+      },
+      "tilmeldinger": {
+        "gavekort": 11,
+        "gaarden": 5,
+        "roskilde": 31,
+        "sommerlejr": 8,
+        "lobeloebet": 0
+      },
+      "ig": {
+        "visninger": 7200,
+        "interaktioner": 312,
+        "delt": 44
+      },
+      "fb": {
+        "visninger": 3100
+      },
+      "følgere": {
+        "ig": 47,
+        "fb": 23
+      }
+    },
+    {
+      "id": "1778837644909",
+      "label": "Maj 2025",
+      "pr": {
+        "promovering": 9,
+        "fortaellinger": 4,
+        "ekstern_pm": 2,
+        "ekstern_daekning": 3
+      },
+      "hjemmeside": {
+        "besøg": 0,
+        "session_tid": 0
+      },
+      "tilmeldinger": {
+        "gavekort": 0,
+        "gaarden": 0,
+        "roskilde": 0,
+        "sommerlejr": 0,
+        "lobeloebet": 0
+      },
+      "ig": {
+        "visninger": 0,
+        "interaktioner": 0,
+        "delt": 0
+      },
+      "fb": {
+        "visninger": 0
+      },
+      "følgere": {
+        "ig": 0,
+        "fb": 0
+      }
     }
   ]
 }
