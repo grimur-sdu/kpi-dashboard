@@ -316,6 +316,11 @@ function suggestNext() {
 }
 
 // ── GITHUB DATA ────────────────────────────────────────
+function rawUrl() {
+  const branch = gh.branch || 'main';
+  return `https://raw.githubusercontent.com/${gh.owner}/${gh.repo}/${branch}/data.json?v=${Date.now()}`;
+}
+
 function apiUrl(file) {
   const branch = gh.branch || 'main';
   return `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/${file}?ref=${branch}`;
@@ -324,16 +329,21 @@ function apiUrl(file) {
 async function fetchData() {
   if (!gh.owner || !gh.repo) return null;
   try {
-    // Always fetch fresh — bypass CDN cache via API
-    const res = await fetch(apiUrl('data.json'), {
-      headers: { Authorization: `Bearer ${gh.token}`, Accept: 'application/vnd.github+json', 'Cache-Control': 'no-cache' }
+    // Read via raw URL — no CORS issues, no token needed
+    const res = await fetch(rawUrl());
+    if (!res.ok) throw new Error(`data.json ikke fundet (HTTP ${res.status}) — er filen uploadet til GitHub?`);
+    const data = await res.json();
+
+    // Get SHA via API — needed for committing
+    const shaRes = await fetch(apiUrl('data.json'), {
+      headers: { Authorization: `Bearer ${gh.token}`, Accept: 'application/vnd.github+json' }
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    const decoded = decodeURIComponent(escape(atob(json.content.replace(/\n/g,''))));
-    return { data: JSON.parse(decoded), sha: json.sha };
+    if (!shaRes.ok) throw new Error(`Token fejl (HTTP ${shaRes.status}) — tjek dit GitHub token`);
+    const { sha } = await shaRes.json();
+
+    return { data, sha };
   } catch(e) {
-    console.error('fetchData:', e);
+    console.error('fetchData:', e.message);
     return null;
   }
 }
