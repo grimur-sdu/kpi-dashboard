@@ -8,168 +8,124 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --vesterhavet: #008AAF;
-    --fjorden: #007696;
-    --dybet: #005B73;
-    --kærlighed: #C30151;
-    --nat: #1A2C32;
-    --lys: #F0F7FA;
-    --grå: #D8E8EE;
-    --hvid: #ffffff;
-    --tekst-lys: #5a7a88;
+    --vesterhavet: #008AAF; --fjorden: #007696; --dybet: #005B73;
+    --kærlighed: #C30151; --nat: #1A2C32; --lys: #F0F7FA;
+    --grå: #D8E8EE; --hvid: #ffffff; --t: #5a7a88;
   }
   body { font-family: 'Open Sans', sans-serif; background: var(--lys); color: var(--nat); min-height: 100vh; }
 
-  .header {
-    background: linear-gradient(135deg, var(--dybet) 0%, var(--vesterhavet) 100%);
-    padding: 28px 32px 0; color: white;
-  }
-  .header-top { max-width: 1000px; margin: 0 auto; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; }
+  .header { background: linear-gradient(135deg, var(--dybet) 0%, var(--vesterhavet) 100%); padding: 28px 32px 0; color: white; }
+  .header-top { max-width: 1060px; margin: 0 auto; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; }
   .header-org { font-size: 11px; font-weight: 700; letter-spacing: 2px; opacity: 0.7; text-transform: uppercase; margin-bottom: 4px; }
   .header h1 { font-size: 28px; font-weight: 800; line-height: 1.1; }
   .header-sub { margin-top: 5px; opacity: 0.7; font-size: 13px; }
   .header-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-  .btn-header {
-    padding: 9px 18px; border-radius: 10px; border: 2px solid rgba(255,255,255,0.4);
-    background: rgba(255,255,255,0.15); color: white; cursor: pointer; font-size: 13px;
-    font-weight: 700; font-family: inherit; letter-spacing: 0.5px; backdrop-filter: blur(4px); transition: background 0.2s;
-  }
+  .btn-header { padding: 9px 18px; border-radius: 10px; border: 2px solid rgba(255,255,255,0.4); background: rgba(255,255,255,0.15); color: white; cursor: pointer; font-size: 13px; font-weight: 700; font-family: inherit; transition: background 0.2s; }
   .btn-header:hover { background: rgba(255,255,255,0.28); }
   .btn-header.primary { background: rgba(255,255,255,0.28); border-color: white; }
   .btn-header:disabled { opacity: 0.5; cursor: not-allowed; }
-
-  .github-status { font-size: 12px; opacity: 0.8; display: flex; align-items: center; gap: 6px; }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #2ecc71; }
-  .status-dot.warn { background: #f39c12; }
-  .status-dot.err { background: #e74c3c; }
-
-  .month-tabs { max-width: 1000px; margin: 20px auto 0; display: flex; gap: 8px; flex-wrap: wrap; }
-  .month-tab {
-    padding: 6px 16px; border-radius: 20px 20px 0 0; border: 2px solid rgba(255,255,255,0.3);
-    border-bottom: none; background: transparent; color: rgba(255,255,255,0.75); cursor: pointer;
-    font-size: 13px; font-weight: 400; font-family: inherit; transition: all 0.15s;
-  }
+  .gh-status { font-size: 12px; opacity: 0.85; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #2ecc71; flex-shrink: 0; }
+  .dot.warn { background: #f39c12; } .dot.err { background: #e74c3c; }
+  .month-tabs { max-width: 1060px; margin: 20px auto 0; display: flex; gap: 8px; flex-wrap: wrap; }
+  .month-tab { padding: 6px 16px; border-radius: 20px 20px 0 0; border: 2px solid rgba(255,255,255,0.3); border-bottom: none; background: transparent; color: rgba(255,255,255,0.75); cursor: pointer; font-size: 13px; font-family: inherit; transition: all 0.15s; }
   .month-tab.active { background: var(--lys); color: var(--nat); border-color: rgba(255,255,255,0.6); font-weight: 800; }
 
-  .body { max-width: 1000px; margin: 0 auto; padding: 28px 24px 60px; }
-  .period-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+  .body { max-width: 1060px; margin: 0 auto; padding: 28px 24px 60px; }
+  .period-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 10px; }
   .period-title { font-size: 20px; font-weight: 800; }
-  .period-sub { font-size: 13px; color: var(--tekst-lys); margin-top: 2px; }
+  .period-sub { font-size: 13px; color: var(--t); margin-top: 2px; }
   .btn-delete { padding: 6px 14px; border-radius: 8px; border: 1.5px solid rgba(195,1,81,0.25); background: transparent; color: var(--kærlighed); cursor: pointer; font-size: 12px; font-weight: 600; font-family: inherit; }
-  .btn-delete:hover { background: rgba(195,1,81,0.07); }
 
-  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 16px; margin-bottom: 32px; }
-  .kpi-card { background: var(--hvid); border-radius: 16px; padding: 20px 22px; box-shadow: 0 2px 12px rgba(0,91,115,0.08); display: flex; flex-direction: column; gap: 7px; }
-  .kpi-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--tekst-lys); }
-  .kpi-value { font-size: 34px; font-weight: 800; line-height: 1; color: var(--nat); }
-  .kpi-unit { font-size: 13px; font-weight: 600; color: var(--tekst-lys); margin-left: 4px; }
-  .kpi-sub { font-size: 12px; color: var(--tekst-lys); }
-  .trend { font-size: 12px; font-weight: 700; margin-left: 6px; }
-  .trend.up { color: #2ecc71; } .trend.down { color: var(--kærlighed); } .trend.flat { color: var(--tekst-lys); }
-  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
-  .chip { border-radius: 6px; padding: 3px 9px; font-size: 11px; font-weight: 700; border: 1.5px solid transparent; }
-  .sparkline { display: flex; align-items: flex-end; gap: 3px; height: 30px; margin-top: 2px; }
+  .section-row { display: flex; align-items: center; gap: 8px; margin: 28px 0 12px; }
+  .section-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: var(--t); white-space: nowrap; }
+  .section-line { flex: 1; height: 1px; background: var(--grå); }
+
+  .grid { display: grid; gap: 14px; }
+  .g2 { grid-template-columns: repeat(2, 1fr); }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .g2_3 { grid-template-columns: 2fr 1fr 1fr; }
+
+  .card { background: var(--hvid); border-radius: 16px; padding: 20px 22px; box-shadow: 0 2px 12px rgba(0,91,115,0.08); display: flex; flex-direction: column; gap: 8px; }
+  .card-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--t); }
+  .card-value { font-size: 36px; font-weight: 800; line-height: 1; color: var(--nat); }
+  .card-unit { font-size: 13px; font-weight: 600; color: var(--t); margin-left: 4px; }
+  .val-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px; }
+  .trend { font-size: 12px; font-weight: 700; margin-left: 5px; }
+  .trend.up { color: #27ae60; } .trend.down { color: var(--kærlighed); } .trend.flat { color: var(--t); }
+  .sub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 4px; }
+  .sub-grid.cols3 { grid-template-columns: repeat(3,1fr); }
+  .sub-item { background: var(--lys); border-radius: 8px; padding: 6px 10px; }
+  .sub-item-label { font-size: 10px; color: var(--t); font-weight: 600; margin-bottom: 1px; }
+  .sub-item-val { font-size: 15px; font-weight: 800; color: var(--nat); }
+  .sub-trend { font-size: 10px; font-weight: 700; margin-left: 3px; }
+  .spark { display: flex; align-items: flex-end; gap: 3px; height: 28px; margin-top: 4px; }
   .spark-bar { flex: 1; border-radius: 2px; }
 
-  .table-section h3 { font-size: 14px; font-weight: 800; color: var(--nat); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
-  .table-wrap { overflow-x: auto; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,91,115,0.07); }
+  /* Loading */
+  .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; gap: 16px; color: var(--t); }
+  .loading-spinner { width: 36px; height: 36px; border: 3px solid var(--grå); border-top-color: var(--vesterhavet); border-radius: 50%; animation: sp 0.8s linear infinite; }
+  .no-config { background: var(--hvid); border-radius: 16px; padding: 40px; text-align: center; box-shadow: 0 2px 12px rgba(0,91,115,0.08); max-width: 480px; margin: 40px auto; }
+  .no-config h3 { font-size: 18px; font-weight: 800; margin-bottom: 10px; }
+  .no-config p { color: var(--t); font-size: 14px; line-height: 1.6; margin-bottom: 20px; }
+
+  /* Table */
+  .tbl-section { margin-top: 40px; }
+  .tbl-section h3 { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--nat); margin-bottom: 14px; }
+  .tbl-wrap { overflow-x: auto; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,91,115,0.07); }
   table { width: 100%; border-collapse: collapse; background: var(--hvid); font-size: 13px; }
   thead tr { background: var(--dybet); color: white; }
-  th { padding: 12px 14px; text-align: left; font-weight: 700; font-size: 12px; letter-spacing: 0.5px; white-space: nowrap; }
+  th { padding: 12px 14px; text-align: left; font-weight: 700; font-size: 12px; letter-spacing: 0.4px; white-space: nowrap; }
   td { padding: 10px 14px; white-space: nowrap; }
-  tr.selected-row { background: rgba(0,138,175,0.1) !important; border-left: 3px solid var(--vesterhavet); }
-  tr.even-row { background: var(--hvid); } tr.odd-row { background: var(--lys); }
-  tbody tr { cursor: pointer; border-left: 3px solid transparent; transition: background 0.1s; }
-  tbody tr:hover { background: rgba(0,138,175,0.06) !important; }
+  tr.sel td { background: rgba(0,138,175,0.09) !important; }
+  tr.sel td:first-child { border-left: 3px solid var(--vesterhavet); }
+  td:first-child { border-left: 3px solid transparent; }
+  tbody tr { cursor: pointer; }
+  tbody tr:nth-child(odd) td { background: var(--lys); }
+  tbody tr:hover td { background: rgba(0,138,175,0.06) !important; }
 
-  .tip { margin-top: 24px; padding: 14px 18px; border-radius: 10px; background: rgba(0,138,175,0.08); border: 1px solid rgba(0,138,175,0.2); font-size: 13px; color: var(--tekst-lys); line-height: 1.6; }
+  .tip { margin-top: 24px; padding: 14px 18px; border-radius: 10px; background: rgba(0,138,175,0.08); border: 1px solid rgba(0,138,175,0.2); font-size: 13px; color: var(--t); line-height: 1.6; }
+  .tip.warn { background: rgba(243,156,18,0.08); border-color: rgba(243,156,18,0.3); }
 
-  /* MODALS */
-  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(26,44,50,0.55); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
-  .modal-overlay.open { display: flex; }
-  .modal { background: var(--hvid); border-radius: 20px; padding: 32px; width: 100%; max-width: 480px; box-shadow: 0 20px 60px rgba(0,91,115,0.2); max-height: 90vh; overflow-y: auto; }
-  .modal h2 { font-size: 22px; font-weight: 800; color: var(--nat); margin-bottom: 4px; }
-  .modal p { color: var(--tekst-lys); font-size: 14px; margin-bottom: 24px; }
-  .form-grid { display: grid; gap: 16px; }
-  .form-row { display: grid; gap: 10px; }
-  .form-row.cols2 { grid-template-columns: 1fr 1fr; }
-  .form-row.cols3 { grid-template-columns: 1fr 1fr 1fr; }
-  .form-group label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--tekst-lys); margin-bottom: 5px; }
-  .form-group input {
-    width: 100%; padding: 9px 12px; border-radius: 8px; border: 1.5px solid var(--grå);
-    font-size: 14px; font-family: inherit; outline: none; color: var(--nat); background: var(--lys); transition: border-color 0.15s;
-  }
-  .form-group input:focus { border-color: var(--vesterhavet); }
-  .form-group input.mono { font-family: monospace; font-size: 13px; }
-  .form-section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--tekst-lys); margin-bottom: 8px; }
-  .modal-actions { display: flex; gap: 12px; margin-top: 28px; }
-  .btn-cancel { flex: 1; padding: 12px 0; border-radius: 10px; border: 2px solid var(--grå); background: transparent; cursor: pointer; font-size: 14px; font-weight: 700; color: var(--tekst-lys); font-family: inherit; }
-  .btn-cancel:hover { border-color: var(--vesterhavet); }
-  .btn-save { flex: 2; padding: 12px 0; border-radius: 10px; border: none; background: linear-gradient(135deg, var(--vesterhavet), var(--dybet)); cursor: pointer; font-size: 14px; font-weight: 800; color: white; font-family: inherit; letter-spacing: 0.5px; transition: opacity 0.15s; }
+  /* Modals */
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(26,44,50,0.55); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+  .overlay.open { display: flex; }
+  .modal { background: var(--hvid); border-radius: 20px; padding: 32px; width: 100%; max-width: 540px; box-shadow: 0 20px 60px rgba(0,91,115,0.2); max-height: 90vh; overflow-y: auto; }
+  .modal h2 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+  .modal > p { color: var(--t); font-size: 14px; margin-bottom: 20px; }
+  .fsec { margin-bottom: 18px; }
+  .fsec-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--vesterhavet); padding-bottom: 6px; border-bottom: 1px solid var(--grå); margin-bottom: 10px; }
+  .frow2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .frow3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .fg label { display: block; font-size: 11px; font-weight: 600; color: var(--t); margin-bottom: 4px; }
+  .fg input { width: 100%; padding: 8px 11px; border-radius: 8px; border: 1.5px solid var(--grå); font-size: 14px; font-family: inherit; outline: none; color: var(--nat); background: var(--lys); transition: border-color 0.15s; }
+  .fg input:focus { border-color: var(--vesterhavet); }
+  .fg input.mono { font-family: monospace; font-size: 12px; }
+  .m-actions { display: flex; gap: 12px; margin-top: 24px; }
+  .btn-cancel { flex: 1; padding: 12px 0; border-radius: 10px; border: 2px solid var(--grå); background: transparent; cursor: pointer; font-size: 14px; font-weight: 700; color: var(--t); font-family: inherit; }
+  .btn-save { flex: 2; padding: 12px 0; border-radius: 10px; border: none; background: linear-gradient(135deg, var(--vesterhavet), var(--dybet)); cursor: pointer; font-size: 14px; font-weight: 800; color: white; font-family: inherit; transition: opacity 0.15s; }
   .btn-save:hover { opacity: 0.9; }
   .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+  .tbox { background: var(--lys); border-radius: 10px; padding: 14px; border: 1px solid var(--grå); font-size: 13px; color: var(--t); line-height: 1.7; margin-bottom: 16px; }
+  .tbox a { color: var(--vesterhavet); }
+  .tbox code { font-size: 11px; background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; }
+  .spin { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.35); border-top-color: white; border-radius: 50%; animation: sp 0.6s linear infinite; margin-right: 5px; vertical-align: middle; }
+  @keyframes sp { to { transform: rotate(360deg); } }
 
-  .token-box { background: var(--lys); border-radius: 10px; padding: 14px; border: 1px solid var(--grå); font-size: 13px; color: var(--tekst-lys); line-height: 1.6; margin-bottom: 16px; }
-  .token-box a { color: var(--vesterhavet); }
-  .token-box code { font-size: 11px; background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; }
-
-  .saving-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 6px; vertical-align: middle; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  @media (max-width: 600px) {
+  @media (max-width: 720px) {
+    .g2_3 { grid-template-columns: 1fr 1fr; }
+    .g3 { grid-template-columns: 1fr 1fr; }
+    .card-value { font-size: 28px; }
+  }
+  @media (max-width: 480px) {
+    .g2, .g3, .g2_3 { grid-template-columns: 1fr; }
     .header { padding: 20px 16px 0; }
     .body { padding: 20px 14px 48px; }
-    .kpi-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
-    .kpi-value { font-size: 26px; }
   }
 </style>
 </head>
 <body>
 
-<script id="kpi-data" type="application/json">
-{
-  "months": [
-    {
-      "id": "jan-2025",
-      "label": "Jan 2025",
-      "pr": 3,
-      "hjemmeside": 1240,
-      "tilmeldinger": { "gavekort": 14, "roskilde": 8, "andet": 5 },
-      "instagram": { "reach": 4200, "engagement": 3.8 },
-      "følgere": { "fb": 3420, "ig": 1870 }
-    },
-    {
-      "id": "feb-2025",
-      "label": "Feb 2025",
-      "pr": 5,
-      "hjemmeside": 1580,
-      "tilmeldinger": { "gavekort": 21, "roskilde": 12, "andet": 9 },
-      "instagram": { "reach": 5100, "engagement": 4.2 },
-      "følgere": { "fb": 3451, "ig": 1934 }
-    },
-    {
-      "id": "mar-2025",
-      "label": "Mar 2025",
-      "pr": 7,
-      "hjemmeside": 2100,
-      "tilmeldinger": { "gavekort": 18, "roskilde": 22, "andet": 7 },
-      "instagram": { "reach": 6800, "engagement": 5.1 },
-      "følgere": { "fb": 3489, "ig": 2041 }
-    },
-    {
-      "id": "apr-2025",
-      "label": "Apr 2025",
-      "pr": 4,
-      "hjemmeside": 1890,
-      "tilmeldinger": { "gavekort": 11, "roskilde": 31, "andet": 14 },
-      "instagram": { "reach": 7200, "engagement": 4.7 },
-      "følgere": { "fb": 3512, "ig": 2118 }
-    }
-  ]
-}
-</script>
-
-<!-- HEADER -->
 <div class="header">
   <div class="header-top">
     <div>
@@ -178,9 +134,9 @@
       <div class="header-sub">Kommunikation & Synlighed</div>
     </div>
     <div class="header-actions">
-      <div class="github-status" id="github-status"></div>
-      <button class="btn-header" onclick="openSettingsModal()">⚙ Opsætning</button>
-      <button class="btn-header primary" onclick="openModal()">+ Tilføj måned</button>
+      <div class="gh-status" id="gh-status"></div>
+      <button class="btn-header" onclick="openSettings()">⚙ Opsætning</button>
+      <button class="btn-header primary" id="btn-add" onclick="openModal()" disabled>+ Tilføj måned</button>
     </div>
   </div>
   <div class="month-tabs" id="month-tabs"></div>
@@ -194,401 +150,508 @@
     </div>
     <button class="btn-delete" id="btn-delete" onclick="deleteMonth()" style="display:none">Slet periode</button>
   </div>
-  <div class="kpi-grid" id="kpi-grid"></div>
-  <div class="table-section" id="table-section">
+  <div id="dash"></div>
+  <div class="tbl-section" id="tbl-section" style="display:none">
     <h3>Udvikling over tid</h3>
-    <div class="table-wrap">
+    <div class="tbl-wrap">
       <table>
-        <thead><tr><th>Måned</th><th>PR-art.</th><th>Hjemmeside</th><th>Tilmeld.</th><th>IG Reach</th><th>Eng.rate</th><th>FB-flg.</th><th>IG-flg.</th></tr></thead>
-        <tbody id="table-body"></tbody>
+        <thead>
+          <tr>
+            <th>Måned</th><th>PR i alt</th><th>Hjemmeside</th><th>Tilmeld. i alt</th>
+            <th>IG visninger</th><th>IG inter.</th><th>FB visninger</th>
+            <th>Flg. IG</th><th>Flg. FB</th>
+          </tr>
+        </thead>
+        <tbody id="tbl-body"></tbody>
       </table>
     </div>
   </div>
-  <div class="tip" id="tip-box"></div>
+  <div class="tip" id="tip"></div>
 </div>
 
 <!-- ADD MONTH MODAL -->
-<div class="modal-overlay" id="modal" onclick="closeModalOutside(event)">
+<div class="overlay" id="modal" onclick="closeModalOut(event)">
   <div class="modal">
     <h2>Tilføj ny måned</h2>
-    <p>Udfyld KPI-tallene for måneden</p>
-    <div class="form-grid">
-      <div class="form-group">
-        <label>Måned</label>
-        <input type="text" id="f-label" placeholder="f.eks. Maj 2025">
-      </div>
-      <div class="form-row cols2">
-        <div class="form-group"><label>PR-artikler</label><input type="number" id="f-pr" placeholder="0"></div>
-        <div class="form-group"><label>Hjemmesidebesøg</label><input type="number" id="f-hjemmeside" placeholder="0"></div>
-      </div>
-      <div>
-        <div class="form-section-label">Tilmeldinger</div>
-        <div class="form-row cols3">
-          <div class="form-group"><label>Gavekort</label><input type="number" id="f-gavekort" placeholder="0"></div>
-          <div class="form-group"><label>Roskilde frivillige</label><input type="number" id="f-roskilde" placeholder="0"></div>
-          <div class="form-group"><label>Andet</label><input type="number" id="f-andet" placeholder="0"></div>
-        </div>
-      </div>
-      <div>
-        <div class="form-section-label">Instagram</div>
-        <div class="form-row cols2">
-          <div class="form-group"><label>Reach</label><input type="number" id="f-reach" placeholder="0"></div>
-          <div class="form-group"><label>Engagement rate (%)</label><input type="number" step="0.1" id="f-eng" placeholder="0.0"></div>
-        </div>
-      </div>
-      <div>
-        <div class="form-section-label">Følgere (samlet antal)</div>
-        <div class="form-row cols2">
-          <div class="form-group"><label>Facebook</label><input type="number" id="f-fb" placeholder=""></div>
-          <div class="form-group"><label>Instagram</label><input type="number" id="f-ig" placeholder=""></div>
-        </div>
+    <p id="modal-sub">Henter nyeste data fra GitHub...</p>
+    <div class="fsec">
+      <div class="fsec-title">Periode</div>
+      <div class="fg"><label>Måned</label><input type="text" id="f-label" placeholder="f.eks. Maj 2025"></div>
+    </div>
+    <div class="fsec">
+      <div class="fsec-title">📰 PR-indsats</div>
+      <div class="frow2">
+        <div class="fg"><label>Promovering</label><input type="number" id="f-pr-p" placeholder="0"></div>
+        <div class="fg"><label>Fortællinger</label><input type="number" id="f-pr-f" placeholder="0"></div>
+        <div class="fg"><label>Ekstern — pressemeddelelser</label><input type="number" id="f-pr-pm" placeholder="0"></div>
+        <div class="fg"><label>Ekstern — dækning af andre</label><input type="number" id="f-pr-d" placeholder="0"></div>
       </div>
     </div>
-    <div class="modal-actions">
+    <div class="fsec">
+      <div class="fsec-title">🌐 Hjemmeside</div>
+      <div class="frow2">
+        <div class="fg"><label>Besøg</label><input type="number" id="f-hj-b" placeholder="0"></div>
+        <div class="fg"><label>Session tid (min)</label><input type="number" step="0.1" id="f-hj-t" placeholder="0.0"></div>
+      </div>
+    </div>
+    <div class="fsec">
+      <div class="fsec-title">✅ Tilmeldinger</div>
+      <div class="frow3">
+        <div class="fg"><label>Gavekort</label><input type="number" id="f-t-g" placeholder="0"></div>
+        <div class="fg"><label>Gården</label><input type="number" id="f-t-ga" placeholder="0"></div>
+        <div class="fg"><label>Roskilde</label><input type="number" id="f-t-r" placeholder="0"></div>
+        <div class="fg"><label>Sommerlejr</label><input type="number" id="f-t-s" placeholder="0"></div>
+        <div class="fg"><label>Løbeløbet</label><input type="number" id="f-t-l" placeholder="0"></div>
+      </div>
+    </div>
+    <div class="fsec">
+      <div class="fsec-title">📸 Instagram</div>
+      <div class="frow3">
+        <div class="fg"><label>Visninger</label><input type="number" id="f-ig-v" placeholder="0"></div>
+        <div class="fg"><label>Interaktioner</label><input type="number" id="f-ig-i" placeholder="0"></div>
+        <div class="fg"><label>Antal delt</label><input type="number" id="f-ig-d" placeholder="0"></div>
+      </div>
+    </div>
+    <div class="fsec">
+      <div class="fsec-title">👍 Facebook</div>
+      <div class="fg" style="max-width:200px"><label>Visninger</label><input type="number" id="f-fb-v" placeholder="0"></div>
+    </div>
+    <div class="fsec">
+      <div class="fsec-title">👥 Nye følgere</div>
+      <div class="frow2">
+        <div class="fg"><label>Instagram</label><input type="number" id="f-fl-ig" placeholder="0"></div>
+        <div class="fg"><label>Facebook</label><input type="number" id="f-fl-fb" placeholder="0"></div>
+      </div>
+    </div>
+    <div class="m-actions">
       <button class="btn-cancel" onclick="closeModal()">Annuller</button>
-      <button class="btn-save" id="btn-save-month" onclick="saveMonth()">Gem & publicer</button>
+      <button class="btn-save" id="btn-gem" onclick="saveMonth()">Gem & publicer</button>
     </div>
   </div>
 </div>
 
 <!-- SETTINGS MODAL -->
-<div class="modal-overlay" id="settings-modal" onclick="closeSettingsOutside(event)">
+<div class="overlay" id="settings" onclick="closeSettingsOut(event)">
   <div class="modal">
     <h2>⚙ GitHub-opsætning</h2>
-    <p>Sæt dette op én gang, så kan hele teamet opdatere dashboardet direkte fra browseren.</p>
-
-    <div class="token-box">
-      <strong>Sådan opretter du et token:</strong><br>
+    <p>Sæt dette op én gang per computer — alle i teamet kan opdatere dashboardet direkte.</p>
+    <div class="tbox">
+      <strong>Opret token:</strong><br>
       1. Gå til <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens/new</a><br>
-      2. Giv det et navn, f.eks. <code>sdu-kpi</code><br>
-      3. Sæt udløb til f.eks. 1 år<br>
-      4. Sæt hak ved <code>repo</code> (øverst)<br>
-      5. Klik "Generate token" og kopier det her
+      2. Navn: <code>sdu-kpi</code> · Udløb: 1 år · Hak ved <code>repo</code><br>
+      3. Klik "Generate token" og kopier det herunder<br><br>
+      <strong>OBS:</strong> Tokenet gemmes kun i din browser — ikke i filer på GitHub.
     </div>
-
-    <div class="form-grid">
-      <div class="form-group">
-        <label>GitHub Token</label>
-        <input type="password" id="s-token" class="mono" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+    <div style="display:grid;gap:12px">
+      <div class="fg"><label>GitHub Token</label><input type="password" id="s-tok" class="mono" placeholder="ghp_..."></div>
+      <div class="frow2">
+        <div class="fg"><label>GitHub bruger</label><input type="text" id="s-own" placeholder="grimur-sdu"></div>
+        <div class="fg"><label>Repository</label><input type="text" id="s-rep" placeholder="kpi-dashboard"></div>
       </div>
-      <div class="form-row cols2">
-        <div class="form-group">
-          <label>GitHub bruger</label>
-          <input type="text" id="s-owner" placeholder="grimur-sdu">
-        </div>
-        <div class="form-group">
-          <label>Repository navn</label>
-          <input type="text" id="s-repo" placeholder="kpi-dashboard">
-        </div>
-      </div>
-      <div class="form-group">
-        <label>Filnavn</label>
-        <input type="text" id="s-file" placeholder="index.html">
+      <div class="frow2">
+        <div class="fg"><label>Branch</label><input type="text" id="s-branch" placeholder="main"></div>
+        <div class="fg"><label>Data-fil</label><input type="text" id="s-fil" placeholder="data.json" readonly style="opacity:0.6"></div>
       </div>
     </div>
-
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeSettingsModal()">Annuller</button>
-      <button class="btn-save" onclick="saveSettings()">Gem opsætning</button>
+    <div class="m-actions">
+      <button class="btn-cancel" onclick="closeSettings()">Annuller</button>
+      <button class="btn-save" onclick="saveSettings()">Gem & hent data</button>
     </div>
   </div>
 </div>
 
 <script>
-// ── STATE ──────────────────────────────────────────────────────────────
-let state = JSON.parse(document.getElementById('kpi-data').textContent);
-let selectedIdx = state.months.length - 1;
+// ── CONFIG ─────────────────────────────────────────────
+let gh = JSON.parse(localStorage.getItem('sdu-gh') || '{}');
+let state = { months: [] };
+let sel = 0;
 
-// GitHub config — gemt i localStorage (kun i din browser)
-let ghConfig = JSON.parse(localStorage.getItem('sdu-gh-config') || '{}');
-
-// ── HELPERS ────────────────────────────────────────────────────────────
+// ── HELPERS ────────────────────────────────────────────
 const fmt = n => Number(n).toLocaleString('da');
-const n = id => Number(document.getElementById(id).value) || 0;
-const s = id => document.getElementById(id).value.trim();
-const totalTilm = m => m.tilmeldinger.gavekort + m.tilmeldinger.roskilde + m.tilmeldinger.andet;
-const totalFølg = m => m.følgere.fb + m.følgere.ig;
+const fv = id => Number(document.getElementById(id).value) || 0;
+const fs = id => document.getElementById(id).value.trim();
+const totalPR = m => m.pr.promovering + m.pr.fortaellinger + m.pr.ekstern_pm + m.pr.ekstern_daekning;
+const totalTilm = m => m.tilmeldinger.gavekort + m.tilmeldinger.gaarden + m.tilmeldinger.roskilde + m.tilmeldinger.sommerlejr + m.tilmeldinger.lobeloebet;
 
 function trend(cur, prev) {
   if (prev == null) return '';
   const diff = cur - prev;
-  if (diff === 0) return '<span class="trend flat">– 0%</span>';
-  const pct = prev !== 0 ? Math.abs(diff/prev*100).toFixed(1) : '–';
+  if (diff === 0) return `<span class="trend flat">±0</span>`;
+  const pct = prev !== 0 ? Math.abs(diff/prev*100).toFixed(0) : '–';
   return `<span class="trend ${diff>0?'up':'down'}">${diff>0?'▲':'▼'} ${pct}%</span>`;
 }
 
-function sparkline(values, color) {
-  const max = Math.max(...values, 1);
-  return `<div class="sparkline">${values.map((v,i) => {
-    const h = Math.max(6, Math.round(v/max*30));
-    const op = 0.4 + (i/(values.length-1||1))*0.6;
+function spark(vals, color) {
+  const max = Math.max(...vals, 1);
+  return `<div class="spark">${vals.map((v,i) => {
+    const h = Math.max(4, Math.round(v/max*28));
+    const op = 0.35 + (i/(vals.length-1||1))*0.65;
     return `<div class="spark-bar" style="height:${h}px;background:${color};opacity:${op}"></div>`;
   }).join('')}</div>`;
 }
 
-function suggestNextMonth() {
-  const da = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
-  const months = state.months;
-  if (!months.length) return '';
-  const [mon, yr] = months[months.length-1].label.split(' ');
-  const idx = da.indexOf(mon);
-  if (idx === -1) return '';
-  const ni = (idx+1)%12;
-  return `${da[ni]} ${ni===0 ? Number(yr)+1 : Number(yr)}`;
+function subTrend(cur, prev) {
+  if (prev == null) return '';
+  const diff = cur - prev;
+  if (diff === 0) return '';
+  const col = diff > 0 ? '#27ae60' : 'var(--kærlighed)';
+  return `<span class="sub-trend" style="color:${col}">${diff>0?'▲':'▼'}${Math.abs(diff)}</span>`;
 }
 
-// ── GITHUB STATUS ──────────────────────────────────────────────────────
-function updateGhStatus() {
-  const el = document.getElementById('github-status');
-  const tip = document.getElementById('tip-box');
-  if (ghConfig.token && ghConfig.owner && ghConfig.repo) {
-    el.innerHTML = `<div class="status-dot"></div> GitHub tilsluttet`;
-    tip.innerHTML = `✅ <strong>GitHub er tilsluttet.</strong> Når du klikker "Gem & publicer" gemmes tallene direkte på siden — ingen download nødvendig.`;
-  } else {
-    el.innerHTML = `<div class="status-dot warn"></div> GitHub ikke sat op`;
-    tip.innerHTML = `⚙️ <strong>Klik "Opsætning"</strong> for at tilslutte GitHub — så kan du opdatere dashboardet direkte fra browseren uden at downloade filer. Du skal kun gøre det én gang.`;
+function card(color, label, value, unit, trendHtml, sparkHtml, extra='') {
+  return `<div class="card" style="border-top:4px solid ${color}">
+    <div class="card-label">${label}</div>
+    <div class="val-row"><span class="card-value">${value}</span><span class="card-unit">${unit}</span>${trendHtml}</div>
+    ${extra}${sparkHtml}
+  </div>`;
+}
+
+function suggestNext() {
+  const da=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const last = state.months[state.months.length-1]?.label.split(' ');
+  if (!last) return '';
+  const i = da.indexOf(last[0]); if (i===-1) return '';
+  const ni = (i+1)%12;
+  return `${da[ni]} ${ni===0 ? Number(last[1])+1 : Number(last[1])}`;
+}
+
+// ── GITHUB DATA ────────────────────────────────────────
+function apiUrl(file) {
+  const branch = gh.branch || 'main';
+  return `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/${file}?ref=${branch}`;
+}
+
+async function fetchData() {
+  if (!gh.owner || !gh.repo) return null;
+  try {
+    // Always fetch fresh — bypass CDN cache via API
+    const res = await fetch(apiUrl('data.json'), {
+      headers: { Authorization: `Bearer ${gh.token}`, Accept: 'application/vnd.github+json', 'Cache-Control': 'no-cache' }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    const decoded = decodeURIComponent(escape(atob(json.content.replace(/\n/g,''))));
+    return { data: JSON.parse(decoded), sha: json.sha };
+  } catch(e) {
+    console.error('fetchData:', e);
+    return null;
   }
 }
 
-// ── RENDER ─────────────────────────────────────────────────────────────
-function render() {
-  const months = state.months;
-  const cur = months[selectedIdx];
-  const prev = selectedIdx > 0 ? months[selectedIdx-1] : null;
-
-  document.getElementById('month-tabs').innerHTML = months.map((m,i) =>
-    `<button class="month-tab ${i===selectedIdx?'active':''}" onclick="selectMonth(${i})">${m.label}</button>`
-  ).join('');
-
-  document.getElementById('period-title').textContent = cur.label;
-  document.getElementById('period-sub').textContent = prev ? `Sammenlignes med ${prev.label}` : 'Første periode';
-  document.getElementById('btn-delete').style.display = months.length > 1 ? '' : 'none';
-
-  const recent = arr => arr.slice(-6);
-  const prV = months.map(m=>m.pr), hjV = months.map(m=>m.hjemmeside);
-  const tilV = months.map(m=>totalTilm(m)), reachV = months.map(m=>m.instagram.reach);
-  const følgV = months.map(m=>totalFølg(m));
-
-  const tilm = totalTilm(cur), følg = totalFølg(cur);
-  const pTilm = prev ? totalTilm(prev) : null, pFølg = prev ? totalFølg(prev) : null;
-
-  document.getElementById('kpi-grid').innerHTML = `
-    <div class="kpi-card" style="border-top:4px solid #008AAF">
-      <div class="kpi-label">📰 PR-indsats</div>
-      <div><span class="kpi-value">${cur.pr}</span><span class="kpi-unit">artikler</span>${trend(cur.pr, prev?.pr)}</div>
-      <div class="kpi-sub">Presse inkl. Ugeavisen</div>
-      ${sparkline(recent(prV),'#008AAF')}
-    </div>
-    <div class="kpi-card" style="border-top:4px solid #007696">
-      <div class="kpi-label">🌐 Hjemmesidebesøg</div>
-      <div><span class="kpi-value">${fmt(cur.hjemmeside)}</span><span class="kpi-unit">besøg</span>${trend(cur.hjemmeside, prev?.hjemmeside)}</div>
-      <div class="kpi-sub">&nbsp;</div>
-      ${sparkline(recent(hjV),'#007696')}
-    </div>
-    <div class="kpi-card" style="border-top:4px solid #005B73">
-      <div class="kpi-label">✅ Tilmeldinger</div>
-      <div><span class="kpi-value">${tilm}</span><span class="kpi-unit">total</span>${trend(tilm, pTilm)}</div>
-      <div class="chips">
-        <span class="chip" style="color:#008AAF;border-color:rgba(0,138,175,0.25);background:rgba(0,138,175,0.07)">Gavekort: ${cur.tilmeldinger.gavekort}</span>
-        <span class="chip" style="color:#007696;border-color:rgba(0,118,150,0.25);background:rgba(0,118,150,0.07)">Roskilde: ${cur.tilmeldinger.roskilde}</span>
-        <span class="chip" style="color:#7a9eab;border-color:rgba(122,158,171,0.25);background:rgba(122,158,171,0.07)">Andet: ${cur.tilmeldinger.andet}</span>
-      </div>
-      ${sparkline(recent(tilV),'#005B73')}
-    </div>
-    <div class="kpi-card" style="border-top:4px solid #C30151">
-      <div class="kpi-label">📸 Instagram Reach</div>
-      <div><span class="kpi-value">${fmt(cur.instagram.reach)}</span><span class="kpi-unit">visn.</span>${trend(cur.instagram.reach, prev?.instagram.reach)}</div>
-      <div class="kpi-sub">Engagement: <strong>${cur.instagram.engagement}%</strong>${trend(cur.instagram.engagement, prev?.instagram.engagement)}</div>
-      ${sparkline(recent(reachV),'#C30151')}
-    </div>
-    <div class="kpi-card" style="border-top:4px solid #6B3FA0">
-      <div class="kpi-label">👥 Følgere i alt</div>
-      <div><span class="kpi-value">${fmt(følg)}</span><span class="kpi-unit">total</span>${trend(følg, pFølg)}</div>
-      <div class="chips">
-        <span class="chip" style="color:#1877F2;border-color:rgba(24,119,242,0.25);background:rgba(24,119,242,0.07)">FB: ${fmt(cur.følgere.fb)}</span>
-        <span class="chip" style="color:#C30151;border-color:rgba(195,1,81,0.25);background:rgba(195,1,81,0.07)">IG: ${fmt(cur.følgere.ig)}</span>
-      </div>
-      ${sparkline(recent(følgV),'#6B3FA0')}
-    </div>`;
-
-  if (months.length > 1) {
-    document.getElementById('table-section').style.display = '';
-    document.getElementById('table-body').innerHTML = months.map((m,i) => {
-      const cls = i===selectedIdx ? 'selected-row' : (i%2===0?'even-row':'odd-row');
-      return `<tr class="${cls}" onclick="selectMonth(${i})">
-        <td><strong>${i===selectedIdx?'▶ ':''}${m.label}</strong></td>
-        <td>${m.pr}</td><td>${fmt(m.hjemmeside)}</td><td>${totalTilm(m)}</td>
-        <td>${fmt(m.instagram.reach)}</td><td>${m.instagram.engagement}%</td>
-        <td>${fmt(m.følgere.fb)}</td><td>${fmt(m.følgere.ig)}</td>
-      </tr>`;
-    }).join('');
-  } else {
-    document.getElementById('table-section').style.display = 'none';
-  }
-
-  updateGhStatus();
-}
-
-function selectMonth(i) { selectedIdx = i; render(); }
-
-function deleteMonth() {
-  if (state.months.length <= 1) return;
-  if (!confirm(`Slet perioden "${state.months[selectedIdx].label}"?`)) return;
-  state.months = state.months.filter((_,i)=>i!==selectedIdx);
-  selectedIdx = Math.min(selectedIdx, state.months.length-1);
-  render();
-}
-
-// ── ADD MONTH MODAL ─────────────────────────────────────────────────────
-function openModal() {
-  const last = state.months[state.months.length-1];
-  if (last) {
-    document.getElementById('f-fb').placeholder = last.følgere.fb;
-    document.getElementById('f-ig').placeholder = last.følgere.ig;
-  }
-  document.getElementById('f-label').value = suggestNextMonth();
-  document.getElementById('modal').classList.add('open');
-}
-function closeModal() {
-  document.getElementById('modal').classList.remove('open');
-  ['f-label','f-pr','f-hjemmeside','f-gavekort','f-roskilde','f-andet','f-reach','f-eng','f-fb','f-ig']
-    .forEach(id => document.getElementById(id).value = '');
-}
-function closeModalOutside(e) { if (e.target===document.getElementById('modal')) closeModal(); }
-
-async function saveMonth() {
-  const label = s('f-label');
-  if (!label) { alert('Angiv venligst en månedbetegnelse.'); return; }
-  const last = state.months[state.months.length-1];
-  state.months.push({
-    id: Date.now().toString(), label,
-    pr: n('f-pr'), hjemmeside: n('f-hjemmeside'),
-    tilmeldinger: { gavekort: n('f-gavekort'), roskilde: n('f-roskilde'), andet: n('f-andet') },
-    instagram: { reach: n('f-reach'), engagement: parseFloat(document.getElementById('f-eng').value)||0 },
-    følgere: { fb: n('f-fb')||(last?.følgere.fb??0), ig: n('f-ig')||(last?.følgere.ig??0) }
+async function commitData(newState, sha) {
+  const branch = gh.branch || 'main';
+  const body = JSON.stringify(newState, null, 2);
+  const encoded = btoa(unescape(encodeURIComponent(body)));
+  const lastLabel = newState.months[newState.months.length-1]?.label || '';
+  const res = await fetch(apiUrl('data.json'), {
+    method: 'PUT',
+    headers: { Authorization:`Bearer ${gh.token}`, Accept:'application/vnd.github+json', 'Content-Type':'application/json' },
+    body: JSON.stringify({ message:`KPI: ${lastLabel}`, content: encoded, sha, branch })
   });
-  selectedIdx = state.months.length-1;
-  closeModal();
-  render();
-  await publishToGitHub();
+  if (!res.ok) { const e = await res.json(); throw new Error(e.message||`HTTP ${res.status}`); }
+  return await res.json();
 }
 
-// ── GITHUB PUBLISH ──────────────────────────────────────────────────────
-async function publishToGitHub() {
-  if (!ghConfig.token || !ghConfig.owner || !ghConfig.repo) {
-    // Fallback: download
-    downloadFile();
-    alert('GitHub er ikke sat op — filen er downloadet i stedet.\n\nKlik "Opsætning" for at forbinde GitHub.');
+// ── INIT ───────────────────────────────────────────────
+async function init() {
+  updateGhStatusUI();
+
+  if (!gh.owner || !gh.repo || !gh.token) {
+    showNoConfig();
     return;
   }
 
-  const btn = document.getElementById('btn-save-month');
-  const origText = btn ? btn.innerHTML : '';
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="saving-spinner"></span> Publicerer...'; }
+  showLoading('Henter nyeste data...');
+  const result = await fetchData();
+
+  if (!result) {
+    showError('Kunne ikke hente data fra GitHub. Tjek din opsætning.');
+    return;
+  }
+
+  state = result.data;
+  sel = state.months.length - 1;
+  document.getElementById('btn-add').disabled = false;
+  render();
+}
+
+function showLoading(msg='Indlæser...') {
+  document.getElementById('dash').innerHTML = `
+    <div class="loading">
+      <div class="loading-spinner"></div>
+      <div>${msg}</div>
+    </div>`;
+  document.getElementById('tbl-section').style.display = 'none';
+  document.getElementById('month-tabs').innerHTML = '';
+  document.getElementById('period-title').textContent = '';
+  document.getElementById('period-sub').textContent = '';
+}
+
+function showNoConfig() {
+  document.getElementById('dash').innerHTML = `
+    <div class="no-config">
+      <div style="font-size:36px;margin-bottom:12px">⚙️</div>
+      <h3>Forbind til GitHub</h3>
+      <p>Klik på "Opsætning" øverst til højre for at forbinde dashboardet til GitHub.<br><br>
+      Du skal gøre dette én gang per computer — herefter hentes og gemmes data automatisk.</p>
+      <button class="btn-save" style="padding:12px 28px;border-radius:10px;border:none;cursor:pointer;font-family:inherit;font-weight:800;font-size:14px" onclick="openSettings()">⚙ Åbn opsætning</button>
+    </div>`;
+}
+
+function showError(msg) {
+  document.getElementById('dash').innerHTML = `
+    <div class="no-config">
+      <div style="font-size:36px;margin-bottom:12px">❌</div>
+      <h3>Fejl</h3>
+      <p>${msg}</p>
+      <button class="btn-save" style="padding:12px 28px;border-radius:10px;border:none;cursor:pointer;font-family:inherit;font-weight:800;font-size:14px" onclick="openSettings()">⚙ Tjek opsætning</button>
+    </div>`;
+}
+
+// ── RENDER ─────────────────────────────────────────────
+function render() {
+  const months = state.months;
+  if (!months || months.length === 0) {
+    document.getElementById('dash').innerHTML = `<div class="tip">Ingen data endnu. Klik "+ Tilføj måned" for at tilføje den første periode.</div>`;
+    return;
+  }
+
+  const c = months[sel];
+  const p = sel > 0 ? months[sel-1] : null;
+
+  document.getElementById('month-tabs').innerHTML = months.map((m,i) =>
+    `<button class="month-tab ${i===sel?'active':''}" onclick="setSel(${i})">${m.label}</button>`
+  ).join('');
+
+  document.getElementById('period-title').textContent = c.label;
+  document.getElementById('period-sub').textContent = p ? `Sammenlignes med ${p.label}` : 'Første periode';
+  document.getElementById('btn-delete').style.display = months.length > 1 ? '' : 'none';
+
+  const rPR   = months.slice(-6).map(m=>totalPR(m));
+  const rHj   = months.slice(-6).map(m=>m.hjemmeside.besøg);
+  const rSes  = months.slice(-6).map(m=>m.hjemmeside.session_tid);
+  const rTilm = months.slice(-6).map(m=>totalTilm(m));
+  const rIGv  = months.slice(-6).map(m=>m.ig.visninger);
+  const rIGi  = months.slice(-6).map(m=>m.ig.interaktioner);
+  const rIGd  = months.slice(-6).map(m=>m.ig.delt);
+  const rFBv  = months.slice(-6).map(m=>m.fb.visninger);
+  const rFlIG = months.slice(-6).map(m=>m.følgere.ig);
+  const rFlFB = months.slice(-6).map(m=>m.følgere.fb);
+
+  const subItems = (items) => `<div class="sub-grid">${items.map(([label,val,pval])=>
+    `<div class="sub-item"><div class="sub-item-label">${label}</div><div class="sub-item-val">${val}${subTrend(val,pval)}</div></div>`
+  ).join('')}</div>`;
+
+  document.getElementById('dash').innerHTML = `
+
+    <div class="section-row"><div class="section-title">📰 PR-indsats</div><div class="section-line"></div></div>
+    <div class="grid g2_3" style="align-items:start">
+      ${card('#008AAF','PR i alt', totalPR(c), 'artikler', trend(totalPR(c), p?totalPR(p):null), spark(rPR,'#008AAF'),
+        subItems([
+          ['Promovering',      c.pr.promovering,       p?.pr.promovering],
+          ['Fortællinger',     c.pr.fortaellinger,     p?.pr.fortaellinger],
+          ['Ekstern — PM',     c.pr.ekstern_pm,        p?.pr.ekstern_pm],
+          ['Ekstern — dækning',c.pr.ekstern_daekning,  p?.pr.ekstern_daekning],
+        ])
+      )}
+      ${card('#007696','Hjemmesidebesøg', fmt(c.hjemmeside.besøg), 'besøg', trend(c.hjemmeside.besøg, p?.hjemmeside.besøg), spark(rHj,'#007696'))}
+      ${card('#005B73','Session tid', c.hjemmeside.session_tid, 'min.', trend(c.hjemmeside.session_tid, p?.hjemmeside.session_tid), spark(rSes,'#005B73'))}
+    </div>
+
+    <div class="section-row"><div class="section-title">✅ Tilmeldinger</div><div class="section-line"></div></div>
+    <div class="grid" style="grid-template-columns:2fr 3fr;align-items:start">
+      ${card('#C30151','Tilmeldinger i alt', totalTilm(c), 'i alt', trend(totalTilm(c), p?totalTilm(p):null), spark(rTilm,'#C30151'))}
+      <div class="card" style="border-top:4px solid #C30151">
+        <div class="card-label">Fordeling</div>
+        <div class="sub-grid cols3">
+          ${[['Gavekort',c.tilmeldinger.gavekort,p?.tilmeldinger.gavekort],
+             ['Gården',c.tilmeldinger.gaarden,p?.tilmeldinger.gaarden],
+             ['Roskilde',c.tilmeldinger.roskilde,p?.tilmeldinger.roskilde],
+             ['Sommerlejr',c.tilmeldinger.sommerlejr,p?.tilmeldinger.sommerlejr],
+             ['Løbeløbet',c.tilmeldinger.lobeloebet,p?.tilmeldinger.lobeloebet],
+          ].map(([l,v,pv])=>`<div class="sub-item"><div class="sub-item-label">${l}</div><div class="sub-item-val">${v}${subTrend(v,pv)}</div></div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="section-row"><div class="section-title">📸 Instagram</div><div class="section-line"></div></div>
+    <div class="grid g3">
+      ${card('#C30151','Visninger', fmt(c.ig.visninger), 'visn.', trend(c.ig.visninger, p?.ig.visninger), spark(rIGv,'#C30151'))}
+      ${card('#008AAF','Interaktioner', fmt(c.ig.interaktioner), 'inter.', trend(c.ig.interaktioner, p?.ig.interaktioner), spark(rIGi,'#008AAF'))}
+      ${card('#007696','Antal delt', fmt(c.ig.delt), 'delt', trend(c.ig.delt, p?.ig.delt), spark(rIGd,'#007696'))}
+    </div>
+
+    <div class="section-row"><div class="section-title">👍 Facebook</div><div class="section-line"></div></div>
+    <div class="grid" style="grid-template-columns:1fr 2fr">
+      ${card('#1877F2','Visninger', fmt(c.fb.visninger), 'visn.', trend(c.fb.visninger, p?.fb.visninger), spark(rFBv,'#1877F2'))}
+      <div></div>
+    </div>
+
+    <div class="section-row"><div class="section-title">👥 Nye følgere</div><div class="section-line"></div></div>
+    <div class="grid g2" style="max-width:440px">
+      ${card('#C30151','Nye følgere — Instagram', fmt(c.følgere.ig), 'flg.', trend(c.følgere.ig, p?.følgere.ig), spark(rFlIG,'#C30151'))}
+      ${card('#1877F2','Nye følgere — Facebook', fmt(c.følgere.fb), 'flg.', trend(c.følgere.fb, p?.følgere.fb), spark(rFlFB,'#1877F2'))}
+    </div>
+  `;
+
+  if (months.length > 1) {
+    document.getElementById('tbl-section').style.display = '';
+    document.getElementById('tbl-body').innerHTML = months.map((m,i) =>
+      `<tr class="${i===sel?'sel':''}" onclick="setSel(${i})">
+        <td><strong>${i===sel?'▶ ':''}${m.label}</strong></td>
+        <td>${totalPR(m)}</td>
+        <td>${fmt(m.hjemmeside.besøg)}</td>
+        <td>${totalTilm(m)}</td>
+        <td>${fmt(m.ig.visninger)}</td>
+        <td>${fmt(m.ig.interaktioner)}</td>
+        <td>${fmt(m.fb.visninger)}</td>
+        <td>+${m.følgere.ig}</td>
+        <td>+${m.følgere.fb}</td>
+      </tr>`
+    ).join('');
+  } else {
+    document.getElementById('tbl-section').style.display = 'none';
+  }
+
+  updateTip();
+}
+
+function setSel(i) { sel = i; render(); }
+
+async function deleteMonth() {
+  if (state.months.length <= 1) return;
+  if (!confirm(`Slet "${state.months[sel].label}"?`)) return;
+
+  showLoading('Henter nyeste data...');
+  const result = await fetchData();
+  if (!result) { toast('❌ Kunne ikke hente data', true); render(); return; }
+
+  result.data.months = result.data.months.filter((_,i) => i !== sel);
+  try {
+    await commitData(result.data, result.sha);
+    state = result.data;
+    sel = Math.min(sel, state.months.length - 1);
+    render();
+    toast('✅ Slettet!');
+  } catch(e) { toast(`❌ ${e.message}`, true); render(); }
+}
+
+// ── MODAL ──────────────────────────────────────────────
+async function openModal() {
+  document.getElementById('modal').classList.add('open');
+  document.getElementById('f-label').value = suggestNext();
+  document.getElementById('modal-sub').textContent = 'Henter nyeste data fra GitHub...';
+  document.getElementById('btn-gem').disabled = true;
+
+  // Always fetch fresh data before opening form
+  const result = await fetchData();
+  if (result) {
+    state = result.data;
+    document.getElementById('f-label').value = suggestNext();
+    document.getElementById('modal-sub').textContent = `Seneste data: ${state.months[state.months.length-1]?.label || '–'} · Udfyld tallene for den nye periode`;
+  } else {
+    document.getElementById('modal-sub').textContent = '⚠️ Kunne ikke hente nyeste data — kontrollér din forbindelse.';
+  }
+  document.getElementById('btn-gem').disabled = false;
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  document.querySelectorAll('#modal input[type="number"]').forEach(el => el.value = '');
+}
+function closeModalOut(e) { if(e.target===document.getElementById('modal')) closeModal(); }
+
+async function saveMonth() {
+  const label = fs('f-label');
+  if (!label) { alert('Angiv venligst en månedbetegnelse.'); return; }
+
+  const btn = document.getElementById('btn-gem');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>Henter & gemmer...';
 
   try {
-    const filename = ghConfig.file || 'index.html';
-    const apiBase = `https://api.github.com/repos/${ghConfig.owner}/${ghConfig.repo}/contents/${filename}`;
+    // 1. Fetch the absolute latest data (in case someone else updated since modal opened)
+    const result = await fetchData();
+    if (!result) throw new Error('Kunne ikke hente data fra GitHub');
 
-    // 1. Hent nuværende fil for at få SHA
-    const getRes = await fetch(apiBase, {
-      headers: { Authorization: `Bearer ${ghConfig.token}`, Accept: 'application/vnd.github+json' }
+    // 2. Add new month
+    result.data.months.push({
+      id: Date.now().toString(), label,
+      pr: { promovering: fv('f-pr-p'), fortaellinger: fv('f-pr-f'), ekstern_pm: fv('f-pr-pm'), ekstern_daekning: fv('f-pr-d') },
+      hjemmeside: { besøg: fv('f-hj-b'), session_tid: parseFloat(document.getElementById('f-hj-t').value)||0 },
+      tilmeldinger: { gavekort: fv('f-t-g'), gaarden: fv('f-t-ga'), roskilde: fv('f-t-r'), sommerlejr: fv('f-t-s'), lobeloebet: fv('f-t-l') },
+      ig: { visninger: fv('f-ig-v'), interaktioner: fv('f-ig-i'), delt: fv('f-ig-d') },
+      fb: { visninger: fv('f-fb-v') },
+      følgere: { ig: fv('f-fl-ig'), fb: fv('f-fl-fb') }
     });
-    if (!getRes.ok) throw new Error(`Kunne ikke hente filen (${getRes.status})`);
-    const fileData = await getRes.json();
-    const sha = fileData.sha;
 
-    // 2. Byg opdateret HTML med nye data
-    const newHTML = buildUpdatedHTML();
-    const encoded = btoa(unescape(encodeURIComponent(newHTML)));
+    // 3. Commit only data.json
+    await commitData(result.data, result.sha);
 
-    // 3. Commit til GitHub
-    const putRes = await fetch(apiBase, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${ghConfig.token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: `KPI opdatering: ${state.months[state.months.length-1].label}`,
-        content: encoded,
-        sha
-      })
-    });
-    if (!putRes.ok) {
-      const err = await putRes.json();
-      throw new Error(err.message || `Fejl (${putRes.status})`);
-    }
-
-    // Success
-    showToast('✅ Publiceret! Siden opdaterer om ~30 sek.');
-  } catch (err) {
-    console.error(err);
-    showToast(`❌ Fejl: ${err.message}`, true);
-    downloadFile(); // fallback
+    state = result.data;
+    sel = state.months.length - 1;
+    closeModal();
+    render();
+    toast('✅ Publiceret! Data opdateret for alle.');
+  } catch(e) {
+    toast(`❌ ${e.message}`, true);
   } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = origText || 'Gem & publicer'; }
+    btn.disabled = false;
+    btn.innerHTML = 'Gem & publicer';
   }
 }
 
-function buildUpdatedHTML() {
-  const current = document.documentElement.outerHTML;
-  const newJSON = JSON.stringify(state, null, 4);
-  return current.replace(
-    /(<script id="kpi-data" type="application\/json">)([\s\S]*?)(<\/script>)/,
-    `$1\n${newJSON}\n$3`
-  );
+// ── STATUS + TIP ───────────────────────────────────────
+function updateGhStatusUI() {
+  const el = document.getElementById('gh-status');
+  if (gh.token && gh.owner && gh.repo) {
+    el.innerHTML = `<div class="dot"></div> GitHub tilsluttet`;
+  } else {
+    el.innerHTML = `<div class="dot warn"></div> GitHub ikke sat op`;
+  }
 }
 
-function downloadFile() {
-  const blob = new Blob([buildUpdatedHTML()], { type: 'text/html;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `sdu-kpi-${new Date().toISOString().slice(0,7)}.html`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+function updateTip() {
+  document.getElementById('tip').innerHTML =
+    `✅ Data hentes <strong>live fra GitHub</strong> hver gang siden åbnes — alle i teamet ser altid de nyeste tal.`;
 }
 
-// ── SETTINGS MODAL ──────────────────────────────────────────────────────
-function openSettingsModal() {
-  document.getElementById('s-token').value = ghConfig.token || '';
-  document.getElementById('s-owner').value = ghConfig.owner || 'grimur-sdu';
-  document.getElementById('s-repo').value = ghConfig.repo || 'kpi-dashboard';
-  document.getElementById('s-file').value = ghConfig.file || 'index.html';
-  document.getElementById('settings-modal').classList.add('open');
+// ── SETTINGS ───────────────────────────────────────────
+function openSettings() {
+  document.getElementById('s-tok').value = gh.token||'';
+  document.getElementById('s-own').value = gh.owner||'grimur-sdu';
+  document.getElementById('s-rep').value = gh.repo||'kpi-dashboard';
+  document.getElementById('s-branch').value = gh.branch||'main';
+  document.getElementById('s-fil').value = 'data.json';
+  document.getElementById('settings').classList.add('open');
 }
-function closeSettingsModal() { document.getElementById('settings-modal').classList.remove('open'); }
-function closeSettingsOutside(e) { if (e.target===document.getElementById('settings-modal')) closeSettingsModal(); }
+function closeSettings() { document.getElementById('settings').classList.remove('open'); }
+function closeSettingsOut(e) { if(e.target===document.getElementById('settings')) closeSettings(); }
 
-function saveSettings() {
-  ghConfig = {
-    token: s('s-token'),
-    owner: s('s-owner'),
-    repo: s('s-repo'),
-    file: s('s-file') || 'index.html'
-  };
-  localStorage.setItem('sdu-gh-config', JSON.stringify(ghConfig));
-  closeSettingsModal();
-  updateGhStatus();
-  showToast('✅ Opsætning gemt!');
+async function saveSettings() {
+  gh = { token: fs('s-tok'), owner: fs('s-own'), repo: fs('s-rep'), branch: fs('s-branch')||'main' };
+  localStorage.setItem('sdu-gh', JSON.stringify(gh));
+  closeSettings();
+  updateGhStatusUI();
+  toast('✅ Opsætning gemt — henter data...');
+  await init();
 }
 
-// ── TOAST ──────────────────────────────────────────────────────────────
-function showToast(msg, isError = false) {
+// ── TOAST ──────────────────────────────────────────────
+function toast(msg, err=false) {
   let t = document.getElementById('toast');
   if (!t) {
-    t = document.createElement('div');
-    t.id = 'toast';
+    t = document.createElement('div'); t.id = 'toast';
     t.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;font-size:14px;font-weight:700;font-family:inherit;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,0.15);transition:opacity 0.3s;white-space:nowrap;';
     document.body.appendChild(t);
   }
   t.textContent = msg;
-  t.style.background = isError ? '#C30151' : '#005B73';
-  t.style.color = 'white';
-  t.style.opacity = '1';
-  clearTimeout(t._hide);
-  t._hide = setTimeout(() => t.style.opacity = '0', 3500);
+  t.style.background = err ? '#C30151' : '#005B73';
+  t.style.color = 'white'; t.style.opacity = '1';
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.opacity = '0', 4000);
 }
 
-// ── INIT ───────────────────────────────────────────────────────────────
-render();
+init();
 </script>
 </body>
 </html>

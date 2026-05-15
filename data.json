@@ -1,0 +1,14 @@
+{
+  "months": [
+    {
+      "id": "apr-2025",
+      "label": "Apr 2025",
+      "pr": { "promovering": 4, "fortaellinger": 3, "ekstern_pm": 2, "ekstern_daekning": 1 },
+      "hjemmeside": { "besøg": 1890, "session_tid": 2.4 },
+      "tilmeldinger": { "gavekort": 11, "gaarden": 5, "roskilde": 31, "sommerlejr": 8, "lobeloebet": 0 },
+      "ig": { "visninger": 7200, "interaktioner": 312, "delt": 44 },
+      "fb": { "visninger": 3100 },
+      "følgere": { "ig": 47, "fb": 23 }
+    }
+  ]
+}
