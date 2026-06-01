@@ -192,7 +192,14 @@
       <div class="fsec-title">🌐 Hjemmeside</div>
       <div class="frow2">
         <div class="fg"><label>Besøg</label><input type="number" id="f-hj-b" placeholder="0"></div>
-        <div class="fg"><label>Session tid (min)</label><input type="number" step="0.1" id="f-hj-t" placeholder="0.0"></div>
+        <div class="fg"><label>Session tid</label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="number" id="f-hj-min" placeholder="0" min="0" style="width:70px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--grå);font-size:14px;font-family:inherit;outline:none;color:var(--nat);background:var(--lys)">
+            <span style="color:var(--t);font-size:13px;font-weight:600">min</span>
+            <input type="number" id="f-hj-sek" placeholder="0" min="0" max="59" style="width:70px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--grå);font-size:14px;font-family:inherit;outline:none;color:var(--nat);background:var(--lys)">
+            <span style="color:var(--t);font-size:13px;font-weight:600">sek</span>
+          </div>
+        </div>
       </div>
     </div>
     <div class="fsec">
@@ -273,6 +280,12 @@ const fv = id => Number(document.getElementById(id).value) || 0;
 const fs = id => document.getElementById(id).value.trim();
 const totalPR = m => m.pr.promovering + m.pr.fortaellinger + m.pr.ekstern_pm + m.pr.ekstern_daekning;
 const totalTilm = m => m.tilmeldinger.gavekort + m.tilmeldinger.gaarden + m.tilmeldinger.roskilde + m.tilmeldinger.sommerlejr + m.tilmeldinger.lobeloebet;
+
+function fmtSek(sek) {
+  const m = Math.floor(sek / 60);
+  const s = Math.round(sek % 60);
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
 
 function trend(cur, prev) {
   if (prev == null) return '';
@@ -485,7 +498,7 @@ function render() {
     <div class="section-row"><div class="section-title">🌐 Hjemmeside</div><div class="section-line"></div></div>
     <div class="grid g2" style="max-width:440px">
       ${card('#007696','Hjemmesidebesøg', fmt(c.hjemmeside.besøg), 'besøg', trend(c.hjemmeside.besøg, p?.hjemmeside.besøg), spark(rHj,'#007696'))}
-      ${card('#005B73','Session tid', c.hjemmeside.session_tid, 'min.', trend(c.hjemmeside.session_tid, p?.hjemmeside.session_tid), spark(rSes,'#005B73'))}
+      ${card('#005B73','Session tid', fmtSek(c.hjemmeside.session_tid), 'min', trend(c.hjemmeside.session_tid, p?.hjemmeside.session_tid), spark(rSes,'#005B73'))}
     </div>
 
     <div class="section-row"><div class="section-title">✅ Tilmeldinger</div><div class="section-line"></div></div>
@@ -607,7 +620,7 @@ async function saveMonth() {
     result.data.months.push({
       id: Date.now().toString(), label,
       pr: { promovering: fv('f-pr-p'), fortaellinger: fv('f-pr-f'), ekstern_pm: fv('f-pr-pm'), ekstern_daekning: fv('f-pr-d') },
-      hjemmeside: { besøg: fv('f-hj-b'), session_tid: parseFloat(document.getElementById('f-hj-t').value)||0 },
+      hjemmeside: { besøg: fv('f-hj-b'), session_tid: (fv('f-hj-min') * 60) + fv('f-hj-sek') },
       tilmeldinger: { gavekort: fv('f-t-g'), gaarden: fv('f-t-ga'), roskilde: fv('f-t-r'), sommerlejr: fv('f-t-s'), lobeloebet: fv('f-t-l') },
       ig: { visninger: fv('f-ig-v'), interaktioner: fv('f-ig-i'), delt: fv('f-ig-d') },
       fb: { visninger: fv('f-fb-v') },
