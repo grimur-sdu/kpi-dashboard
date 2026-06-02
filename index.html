@@ -335,8 +335,9 @@ function suggestNext() {
 
 // ── GITHUB DATA ────────────────────────────────────────
 function rawUrl() {
-  const branch = gh.branch || 'main';
-  return `https://raw.githubusercontent.com/${gh.owner}/${gh.repo}/${branch}/data.json?v=${Date.now()}`;
+  // Relativ URL — samme domæne som siden, ingen CORS-problemer
+  const base = window.location.pathname.replace(/\/[^/]*$/, '');
+  return `${base}/data.json?v=${Date.now()}`;
 }
 
 function apiUrl(file) {
