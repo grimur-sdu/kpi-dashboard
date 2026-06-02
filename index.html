@@ -36,6 +36,7 @@
   .period-title { font-size: 20px; font-weight: 800; }
   .period-sub { font-size: 13px; color: var(--t); margin-top: 2px; }
   .btn-delete { padding: 6px 14px; border-radius: 8px; border: 1.5px solid rgba(195,1,81,0.25); background: transparent; color: var(--kærlighed); cursor: pointer; font-size: 12px; font-weight: 600; font-family: inherit; }
+  .btn-edit { padding: 6px 14px; border-radius: 8px; border: 1.5px solid rgba(0,118,150,0.35); background: transparent; color: var(--fjorden); cursor: pointer; font-size: 12px; font-weight: 600; font-family: inherit; }
 
   .section-row { display: flex; align-items: center; gap: 8px; margin: 28px 0 12px; }
   .section-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: var(--t); white-space: nowrap; }
@@ -149,7 +150,10 @@
       <div class="period-title" id="period-title"></div>
       <div class="period-sub" id="period-sub"></div>
     </div>
-    <button class="btn-delete" id="btn-delete" onclick="deleteMonth()" style="display:none">Slet periode</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn-edit" id="btn-edit" onclick="openEditModal()" style="display:none">✏️ Rediger periode</button>
+      <button class="btn-delete" id="btn-delete" onclick="deleteMonth()" style="display:none">Slet periode</button>
+    </div>
   </div>
   <div id="dash"></div>
   <div class="tbl-section" id="tbl-section" style="display:none">
@@ -464,6 +468,7 @@ function render() {
   document.getElementById('period-title').textContent = c.label;
   document.getElementById('period-sub').textContent = p ? `Sammenlignes med ${p.label}` : 'Første periode';
   document.getElementById('btn-delete').style.display = months.length > 1 ? '' : 'none';
+  document.getElementById('btn-edit').style.display = '';
 
   const rPR   = months.slice(-6).map(m=>totalPR(m));
   const rHj   = months.slice(-6).map(m=>m.hjemmeside.besøg);
@@ -577,6 +582,9 @@ async function deleteMonth() {
 
 // ── MODAL ──────────────────────────────────────────────
 async function openModal() {
+  editMode = false;
+  document.getElementById('modal').querySelector('h2').textContent = 'Tilføj ny måned';
+  document.getElementById('btn-gem').textContent = 'Gem & publicer';
   document.getElementById('modal').classList.add('open');
   document.getElementById('f-label').value = suggestNext();
   document.getElementById('modal-sub').textContent = 'Henter nyeste data fra GitHub...';
@@ -594,9 +602,45 @@ async function openModal() {
   document.getElementById('btn-gem').disabled = false;
 }
 
+let editMode = false; // false = tilføj ny, true = rediger eksisterende
+
+function openEditModal() {
+  editMode = true;
+  const m = state.months[sel];
+  document.getElementById('modal').classList.add('open');
+  document.getElementById('modal').querySelector('h2').textContent = `Rediger: ${m.label}`;
+  document.getElementById('btn-gem').textContent = 'Gem ændringer';
+  document.getElementById('modal-sub').textContent = 'Ret tallene og klik "Gem ændringer"';
+
+  // Pre-fill all fields
+  document.getElementById('f-label').value = m.label;
+  document.getElementById('f-pr-p').value = m.pr.promovering;
+  document.getElementById('f-pr-f').value = m.pr.fortaellinger;
+  document.getElementById('f-pr-pm').value = m.pr.ekstern_pm;
+  document.getElementById('f-pr-d').value = m.pr.ekstern_daekning;
+  document.getElementById('f-hj-b').value = m.hjemmeside.besøg;
+  document.getElementById('f-hj-min').value = Math.floor(m.hjemmeside.session_tid / 60);
+  document.getElementById('f-hj-sek').value = Math.round(m.hjemmeside.session_tid % 60);
+  document.getElementById('f-t-g').value = m.tilmeldinger.gavekort;
+  document.getElementById('f-t-ga').value = m.tilmeldinger.gaarden;
+  document.getElementById('f-t-r').value = m.tilmeldinger.roskilde;
+  document.getElementById('f-t-s').value = m.tilmeldinger.sommerlejr;
+  document.getElementById('f-t-l').value = m.tilmeldinger.lobeloebet;
+  document.getElementById('f-ig-v').value = m.ig.visninger;
+  document.getElementById('f-ig-i').value = m.ig.interaktioner;
+  document.getElementById('f-ig-d').value = m.ig.delt;
+  document.getElementById('f-fb-v').value = m.fb.visninger;
+  document.getElementById('f-fl-ig').value = m.følgere.ig;
+  document.getElementById('f-fl-fb').value = m.følgere.fb;
+}
+
 function closeModal() {
   document.getElementById('modal').classList.remove('open');
   document.querySelectorAll('#modal input[type="number"]').forEach(el => el.value = '');
+  document.getElementById('f-label').value = '';
+  document.getElementById('modal').querySelector('h2').textContent = 'Tilføj ny måned';
+  document.getElementById('btn-gem').textContent = 'Gem & publicer';
+  editMode = false;
 }
 function closeModalOut(e) { if(e.target===document.getElementById('modal')) closeModal(); }
 
@@ -609,32 +653,38 @@ async function saveMonth() {
   btn.innerHTML = '<span class="spin"></span>Henter & gemmer...';
 
   try {
-    // 1. Fetch the absolute latest data (in case someone else updated since modal opened)
+    // 1. Fetch the absolute latest data
     const result = await fetchData();
     if (!result || result.error) throw new Error(result?.error || 'Kunne ikke hente data fra GitHub');
-
-    // 1b. Get SHA for commit
     result.sha = await getSHA();
 
-    // 2. Add new month
-    result.data.months.push({
-      id: Date.now().toString(), label,
+    const monthData = {
       pr: { promovering: fv('f-pr-p'), fortaellinger: fv('f-pr-f'), ekstern_pm: fv('f-pr-pm'), ekstern_daekning: fv('f-pr-d') },
       hjemmeside: { besøg: fv('f-hj-b'), session_tid: (fv('f-hj-min') * 60) + fv('f-hj-sek') },
       tilmeldinger: { gavekort: fv('f-t-g'), gaarden: fv('f-t-ga'), roskilde: fv('f-t-r'), sommerlejr: fv('f-t-s'), lobeloebet: fv('f-t-l') },
       ig: { visninger: fv('f-ig-v'), interaktioner: fv('f-ig-i'), delt: fv('f-ig-d') },
       fb: { visninger: fv('f-fb-v') },
       følgere: { ig: fv('f-fl-ig'), fb: fv('f-fl-fb') }
-    });
+    };
+
+    if (editMode) {
+      // 2a. Update existing month
+      const idx = result.data.months.findIndex(m => m.id === state.months[sel].id);
+      if (idx === -1) throw new Error('Måneden blev ikke fundet — prøv igen');
+      result.data.months[idx] = { ...result.data.months[idx], label, ...monthData };
+    } else {
+      // 2b. Add new month
+      result.data.months.push({ id: Date.now().toString(), label, ...monthData });
+      sel = result.data.months.length - 1;
+    }
 
     // 3. Commit only data.json
     await commitData(result.data, result.sha);
 
     state = result.data;
-    sel = state.months.length - 1;
     closeModal();
     render();
-    toast('✅ Publiceret! Data opdateret for alle.');
+    toast(editMode ? '✅ Ændringer gemt!' : '✅ Publiceret! Data opdateret for alle.');
   } catch(e) {
     toast(`❌ ${e.message}`, true);
   } finally {
