@@ -32,6 +32,39 @@
         "ig": 47,
         "fb": 23
       }
+    },
+    {
+      "id": "1780385285328",
+      "label": "Maj 2025",
+      "pr": {
+        "promovering": 7,
+        "fortaellinger": 0,
+        "ekstern_pm": 0,
+        "ekstern_daekning": 0
+      },
+      "hjemmeside": {
+        "besøg": 0,
+        "session_tid": 0
+      },
+      "tilmeldinger": {
+        "gavekort": 0,
+        "gaarden": 0,
+        "roskilde": 0,
+        "sommerlejr": 0,
+        "lobeloebet": 0
+      },
+      "ig": {
+        "visninger": 0,
+        "interaktioner": 0,
+        "delt": 0
+      },
+      "fb": {
+        "visninger": 0
+      },
+      "følgere": {
+        "ig": 0,
+        "fb": 0
+      }
     }
   ]
 }
