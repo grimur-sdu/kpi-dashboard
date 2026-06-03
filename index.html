@@ -195,14 +195,23 @@
     <div class="fsec">
       <div class="fsec-title">🌐 Hjemmeside</div>
       <div class="frow2">
-        <div class="fg"><label>Besøg</label><input type="number" id="f-hj-b" placeholder="0"></div>
-        <div class="fg"><label>Session tid</label>
-          <div style="display:flex;gap:6px;align-items:center">
-            <input type="number" id="f-hj-min" placeholder="0" min="0" style="width:70px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--grå);font-size:14px;font-family:inherit;outline:none;color:var(--nat);background:var(--lys)">
-            <span style="color:var(--t);font-size:13px;font-weight:600">min</span>
-            <input type="number" id="f-hj-sek" placeholder="0" min="0" max="59" style="width:70px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--grå);font-size:14px;font-family:inherit;outline:none;color:var(--nat);background:var(--lys)">
-            <span style="color:var(--t);font-size:13px;font-weight:600">sek</span>
-          </div>
+        <div class="fg"><label>Besøg i alt</label><input type="number" id="f-hj-b" placeholder="0"></div>
+        <div class="fg"><label>Unikke besøg</label><input type="number" id="f-hj-u" placeholder="0"></div>
+      </div>
+      <div style="margin-top:10px" class="fg"><label>Session tid</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="number" id="f-hj-min" placeholder="0" min="0" style="width:70px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--grå);font-size:14px;font-family:inherit;outline:none;color:var(--nat);background:var(--lys)">
+          <span style="color:var(--t);font-size:13px;font-weight:600">min</span>
+          <input type="number" id="f-hj-sek" placeholder="0" min="0" max="59" style="width:70px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--grå);font-size:14px;font-family:inherit;outline:none;color:var(--nat);background:var(--lys)">
+          <span style="color:var(--t);font-size:13px;font-weight:600">sek</span>
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--t);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">Landing pages</div>
+        <div class="frow3">
+          <div class="fg"><label>Gavekort</label><input type="number" id="f-hj-lpg" placeholder="0"></div>
+          <div class="fg"><label>Gården</label><input type="number" id="f-hj-lpga" placeholder="0"></div>
+          <div class="fg"><label>Roskilde</label><input type="number" id="f-hj-lpr" placeholder="0"></div>
         </div>
       </div>
     </div>
@@ -502,9 +511,15 @@ function render() {
     </div>
 
     <div class="section-row"><div class="section-title">🌐 Hjemmeside</div><div class="section-line"></div></div>
-    <div class="grid g2" style="max-width:440px">
-      ${card('#007696','Hjemmesidebesøg', fmt(c.hjemmeside.besøg), 'besøg', trend(c.hjemmeside.besøg, p?.hjemmeside.besøg), spark(rHj,'#007696'))}
-      ${card('#005B73','Session tid', fmtSek(c.hjemmeside.session_tid), 'min', trend(c.hjemmeside.session_tid, p?.hjemmeside.session_tid), spark(rSes,'#005B73'))}
+    <div class="grid g3">
+      ${card('#007696','Besøg i alt', fmt(c.hjemmeside.besøg), 'besøg', trend(c.hjemmeside.besøg, p?.hjemmeside.besøg), spark(rHj,'#007696'))}
+      ${card('#005B73','Unikke besøg', fmt(c.hjemmeside.unikke||0), 'besøg', trend(c.hjemmeside.unikke||0, p?.hjemmeside.unikke||0), spark(months.slice(-6).map(m=>m.hjemmeside.unikke||0),'#005B73'))}
+      ${card('#008AAF','Session tid', fmtSek(c.hjemmeside.session_tid), 'min', trend(c.hjemmeside.session_tid, p?.hjemmeside.session_tid), spark(rSes,'#008AAF'))}
+    </div>
+    <div class="grid g3" style="margin-top:14px">
+      ${card('#007696','LP: Gavekort', fmt(c.hjemmeside.lp_gavekort||0), 'besøg', trend(c.hjemmeside.lp_gavekort||0, p?.hjemmeside.lp_gavekort||0), spark(months.slice(-6).map(m=>m.hjemmeside.lp_gavekort||0),'#007696'))}
+      ${card('#005B73','LP: Gården', fmt(c.hjemmeside.lp_gaarden||0), 'besøg', trend(c.hjemmeside.lp_gaarden||0, p?.hjemmeside.lp_gaarden||0), spark(months.slice(-6).map(m=>m.hjemmeside.lp_gaarden||0),'#005B73'))}
+      ${card('#008AAF','LP: Roskilde', fmt(c.hjemmeside.lp_roskilde||0), 'besøg', trend(c.hjemmeside.lp_roskilde||0, p?.hjemmeside.lp_roskilde||0), spark(months.slice(-6).map(m=>m.hjemmeside.lp_roskilde||0),'#008AAF'))}
     </div>
 
     <div class="section-row"><div class="section-title">✅ Tilmeldinger</div><div class="section-line"></div></div>
@@ -620,8 +635,12 @@ function openEditModal() {
   document.getElementById('f-pr-pm').value = m.pr.ekstern_pm;
   document.getElementById('f-pr-d').value = m.pr.ekstern_daekning;
   document.getElementById('f-hj-b').value = m.hjemmeside.besøg;
+  document.getElementById('f-hj-u').value = m.hjemmeside.unikke||0;
   document.getElementById('f-hj-min').value = Math.floor(m.hjemmeside.session_tid / 60);
   document.getElementById('f-hj-sek').value = Math.round(m.hjemmeside.session_tid % 60);
+  document.getElementById('f-hj-lpg').value = m.hjemmeside.lp_gavekort||0;
+  document.getElementById('f-hj-lpga').value = m.hjemmeside.lp_gaarden||0;
+  document.getElementById('f-hj-lpr').value = m.hjemmeside.lp_roskilde||0;
   document.getElementById('f-t-g').value = m.tilmeldinger.gavekort;
   document.getElementById('f-t-ga').value = m.tilmeldinger.gaarden;
   document.getElementById('f-t-r').value = m.tilmeldinger.roskilde;
@@ -661,7 +680,7 @@ async function saveMonth() {
 
     const monthData = {
       pr: { promovering: fv('f-pr-p'), fortaellinger: fv('f-pr-f'), ekstern_pm: fv('f-pr-pm'), ekstern_daekning: fv('f-pr-d') },
-      hjemmeside: { besøg: fv('f-hj-b'), session_tid: (fv('f-hj-min') * 60) + fv('f-hj-sek') },
+      hjemmeside: { besøg: fv('f-hj-b'), unikke: fv('f-hj-u'), session_tid: (fv('f-hj-min') * 60) + fv('f-hj-sek'), lp_gavekort: fv('f-hj-lpg'), lp_gaarden: fv('f-hj-lpga'), lp_roskilde: fv('f-hj-lpr') },
       tilmeldinger: { gavekort: fv('f-t-g'), gaarden: fv('f-t-ga'), roskilde: fv('f-t-r'), sommerlejr: fv('f-t-s'), lobeloebet: fv('f-t-l') },
       ig: { visninger: fv('f-ig-v'), interaktioner: fv('f-ig-i'), delt: fv('f-ig-d') },
       fb: { visninger: fv('f-fb-v') },
