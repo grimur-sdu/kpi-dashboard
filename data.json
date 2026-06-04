@@ -75,8 +75,8 @@
       }
     },
     {
-      "id": "1780557175281",
-      "label": "April 2026",
+      "id": "1780557209731",
+      "label": "Februar 2026",
       "pr": {
         "promovering": 0,
         "fortaellinger": 0,
@@ -89,12 +89,12 @@
         "session_tid": 0,
         "lp_gavekort": 0,
         "lp_gaarden": 0,
-        "lp_roskilde": 0
+        "lp_roskilde": 22
       },
       "tilmeldinger": {
         "gavekort": 0,
         "gaarden": 0,
-        "roskilde": 34,
+        "roskilde": 0,
         "sommerlejr": 0,
         "lobeloebet": 0
       },
