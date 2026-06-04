@@ -255,13 +255,11 @@
 <div class="overlay" id="settings" onclick="closeSettingsOut(event)">
   <div class="modal">
     <h2>⚙ GitHub-opsætning</h2>
-    <p>Sæt dette op én gang per computer — alle i teamet kan opdatere dashboardet direkte.</p>
+    <p>Udfyldes én gang per computer. Tokenet gemmes kun i din browser.</p>
     <div class="tbox">
-      <strong>Opret token:</strong><br>
-      1. Gå til <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens/new</a><br>
-      2. Navn: <code>sdu-kpi</code> · Udløb: 1 år · Hak ved <code>repo</code><br>
-      3. Klik "Generate token" og kopier det herunder<br><br>
-      <strong>OBS:</strong> Tokenet gemmes kun i din browser — ikke i filer på GitHub.
+      <strong>Nyt token:</strong>
+      Gå til <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens/new</a>
+      · Navn: valgfrit · Sæt hak ved <code>repo</code> · Klik Generate · Kopiér
     </div>
     <div style="display:grid;gap:12px">
       <div class="fg"><label>GitHub Token</label><input type="password" id="s-tok" class="mono" placeholder="ghp_..."></div>
@@ -269,28 +267,77 @@
         <div class="fg"><label>GitHub bruger</label><input type="text" id="s-own" placeholder="grimur-sdu"></div>
         <div class="fg"><label>Repository</label><input type="text" id="s-rep" placeholder="kpi-dashboard"></div>
       </div>
-      <div class="frow2">
-        <div class="fg"><label>Branch</label><input type="text" id="s-branch" placeholder="main"></div>
-        <div class="fg"><label>Data-fil</label><input type="text" id="s-fil" placeholder="data.json" readonly style="opacity:0.6"></div>
-      </div>
     </div>
+    <div id="s-test-result" style="margin-top:12px;font-size:13px;min-height:20px"></div>
     <div class="m-actions">
       <button class="btn-cancel" onclick="closeSettings()">Annuller</button>
-      <button class="btn-save" onclick="saveSettings()">Gem & hent data</button>
+      <button class="btn-save" id="btn-test" onclick="testAndSave()">Test & gem</button>
     </div>
   </div>
 </div>
 
 <script>
-// ── CONFIG ─────────────────────────────────────────────
-let gh = JSON.parse(localStorage.getItem('sdu-gh') || '{}');
 let state = { months: [] };
 let sel = 0;
+let editMode = false;
+let gh = JSON.parse(localStorage.getItem('sdu-gh') || '{}');
 
-// ── HELPERS ────────────────────────────────────────────
+// ── GITHUB ────────────────────────────────────────────────
+function ghHeaders() {
+  return {
+    'Authorization': `Bearer ${gh.token}`,
+    'Accept': 'application/vnd.github+json',
+    'Content-Type': 'application/json'
+  };
+}
+
+function ghApiUrl() {
+  return `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/data.json`;
+}
+
+async function ghGetSHA() {
+  const res = await fetch(ghApiUrl(), { headers: ghHeaders() });
+  if (res.status === 401) throw new Error('Token ugyldigt eller udløbet — opret et nyt under ⚙ Opsætning');
+  if (res.status === 403) throw new Error('Token mangler repo-adgang — sæt hak ved "repo" da du oprettede det');
+  if (res.status === 404) throw new Error('data.json ikke fundet i repository — tjek repo-navn og at filen er uploadet');
+  if (!res.ok) throw new Error(`GitHub svarede: HTTP ${res.status}`);
+  const json = await res.json();
+  return json.sha;
+}
+
+async function ghCommit(newState) {
+  if (!gh.token || !gh.owner || !gh.repo) {
+    throw new Error('GitHub ikke sat op — klik ⚙ Opsætning');
+  }
+  const sha = await ghGetSHA();
+  const body = JSON.stringify(newState, null, 2);
+  const encoded = btoa(unescape(encodeURIComponent(body)));
+  const lastLabel = newState.months[sel]?.label || '';
+  const res = await fetch(ghApiUrl(), {
+    method: 'PUT',
+    headers: ghHeaders(),
+    body: JSON.stringify({ message: `KPI: ${lastLabel}`, content: encoded, sha })
+  });
+  if (res.status === 401) throw new Error('Token ugyldigt eller udløbet');
+  if (res.status === 403) throw new Error('Token mangler skriveadgang');
+  if (res.status === 409) throw new Error('Konflikt — en anden har ændret filen samtidig. Prøv igen');
+  if (!res.ok) { const e = await res.json().catch(()=>{}); throw new Error(e?.message || `HTTP ${res.status}`); }
+}
+
+function updateGhStatus() {
+  const el = document.getElementById('gh-status');
+  if (!el) return;
+  if (gh.token && gh.owner && gh.repo) {
+    el.innerHTML = `<div class="dot"></div> GitHub tilsluttet`;
+  } else {
+    el.innerHTML = `<div class="dot warn"></div> <span style="cursor:pointer;text-decoration:underline" onclick="openSettings()">Opsæt GitHub</span>`;
+  }
+}
+
+// ── HELPERS ──────────────────────────────────────────────
 const fmt = n => Number(n).toLocaleString('da');
-const fv = id => Number(document.getElementById(id).value) || 0;
-const fs = id => document.getElementById(id).value.trim();
+const fv = id => Number(document.getElementById(id)?.value) || 0;
+const fs = id => (document.getElementById(id)?.value || '').trim();
 const totalPR = m => m.pr.promovering + m.pr.fortaellinger + m.pr.ekstern_pm + m.pr.ekstern_daekning;
 const totalTilm = m => m.tilmeldinger.gavekort + m.tilmeldinger.gaarden + m.tilmeldinger.roskilde + m.tilmeldinger.sommerlejr + m.tilmeldinger.lobeloebet;
 
@@ -301,7 +348,7 @@ function fmtSek(sek) {
 }
 
 function trend(cur, prev) {
-  if (prev == null) return '';
+  if (prev == null || prev === undefined) return '';
   const diff = cur - prev;
   if (diff === 0) return `<span class="trend flat">±0</span>`;
   const pct = prev !== 0 ? Math.abs(diff/prev*100).toFixed(0) : '–';
@@ -309,8 +356,9 @@ function trend(cur, prev) {
 }
 
 function spark(vals, color) {
+  if (!vals || vals.length === 0) return '';
   const max = Math.max(...vals, 1);
-  return `<div class="spark">${vals.map((v,i) => {
+  return `<div class="spark">${vals.map((v,i)=>{
     const h = Math.max(4, Math.round(v/max*28));
     const op = 0.35 + (i/(vals.length-1||1))*0.65;
     return `<div class="spark-bar" style="height:${h}px;background:${color};opacity:${op}"></div>`;
@@ -333,138 +381,48 @@ function card(color, label, value, unit, trendHtml, sparkHtml, extra='') {
   </div>`;
 }
 
-function suggestNext() {
-  const da=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
-  const last = state.months[state.months.length-1]?.label.split(' ');
-  if (!last) return '';
-  const i = da.indexOf(last[0]); if (i===-1) return '';
-  const ni = (i+1)%12;
-  return `${da[ni]} ${ni===0 ? Number(last[1])+1 : Number(last[1])}`;
+function subItems(items) {
+  return `<div class="sub-grid">${items.map(([label,val,pval])=>
+    `<div class="sub-item"><div class="sub-item-label">${label}</div><div class="sub-item-val">${val}${subTrend(val,pval)}</div></div>`
+  ).join('')}</div>`;
 }
 
-// ── GITHUB DATA ────────────────────────────────────────
-function rawUrl() {
-  // Relativ URL — samme domæne som siden, ingen CORS-problemer
-  const base = window.location.pathname.replace(/\/[^/]*$/, '');
-  return `${base}/data.json?v=${Date.now()}`;
-}
-
-function apiUrl(file) {
-  const branch = gh.branch || 'main';
-  return `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/${file}?ref=${branch}`;
-}
-
-async function fetchData() {
-  if (!gh.owner || !gh.repo) return null;
-  const url = rawUrl();
-  console.log('Fetching:', url);
-  try {
-    const res = await fetch(url);
-    console.log('Response status:', res.status);
-    if (res.status === 404) throw new Error('data.json findes ikke på GitHub endnu — upload filen først');
-    if (!res.ok) throw new Error(`HTTP ${res.status} fra raw.githubusercontent.com`);
-    const data = await res.json();
-    console.log('Data loaded, months:', data.months?.length);
-    return { data, sha: null }; // SHA hentes kun ved commit
-  } catch(e) {
-    console.error('fetchData fejl:', e.message);
-    return { error: e.message };
-  }
-}
-
-async function getSHA() {
-  try {
-    const res = await fetch(apiUrl('data.json'), {
-      headers: { Authorization: `Bearer ${gh.token}`, Accept: 'application/vnd.github+json' }
-    });
-    if (!res.ok) throw new Error(`Token fejl (HTTP ${res.status})`);
-    const json = await res.json();
-    return json.sha;
-  } catch(e) {
-    throw new Error(`Kunne ikke hente SHA: ${e.message}`);
-  }
-}
-
-async function commitData(newState, sha) {
-  const branch = gh.branch || 'main';
-  const body = JSON.stringify(newState, null, 2);
-  const encoded = btoa(unescape(encodeURIComponent(body)));
-  const lastLabel = newState.months[newState.months.length-1]?.label || '';
-  const res = await fetch(apiUrl('data.json'), {
-    method: 'PUT',
-    headers: { Authorization:`Bearer ${gh.token}`, Accept:'application/vnd.github+json', 'Content-Type':'application/json' },
-    body: JSON.stringify({ message:`KPI: ${lastLabel}`, content: encoded, sha, branch })
-  });
-  if (!res.ok) { const e = await res.json(); throw new Error(e.message||`HTTP ${res.status}`); }
-  return await res.json();
-}
-
-// ── INIT ───────────────────────────────────────────────
+// ── LOAD DATA ─────────────────────────────────────────────
 async function init() {
-  updateGhStatusUI();
-
-  if (!gh.owner || !gh.repo || !gh.token) {
-    showNoConfig();
-    return;
+  showLoading('Henter data...');
+  try {
+    const base = window.location.pathname.replace(/\/[^/]*$/, '');
+    const url = `${base}/data.json?v=${Date.now()}`;
+    console.log('Fetching:', url);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status} — er data.json uploadet til GitHub?`);
+    state = await res.json();
+    sel = state.months.length - 1;
+    document.getElementById('btn-add').disabled = false;
+    updateGhStatus();
+    render();
+  } catch(e) {
+    console.error(e);
+    showError(`Kunne ikke hente data.json<br><br><code>${e.message}</code><br><br>Tjek at <strong>data.json</strong> ligger i dit GitHub repository.`);
   }
-
-  showLoading('Henter nyeste data...');
-  const result = await fetchData();
-
-  if (!result || result.error) {
-    const msg = result?.error || 'Ukendt fejl';
-    showError(`<strong>Fejl:</strong> ${msg}<br><br>
-      Tjek at:<br>
-      1. <code>data.json</code> er uploadet til <code>grimur-sdu/kpi-dashboard</code><br>
-      2. Repository er <strong>Public</strong><br>
-      3. Branch hedder <strong>main</strong>`);
-    return;
-  }
-
-  state = result.data;
-  sel = state.months.length - 1;
-  document.getElementById('btn-add').disabled = false;
-  render();
 }
 
-function showLoading(msg='Indlæser...') {
-  document.getElementById('dash').innerHTML = `
-    <div class="loading">
-      <div class="loading-spinner"></div>
-      <div>${msg}</div>
-    </div>`;
-  document.getElementById('tbl-section').style.display = 'none';
-  document.getElementById('month-tabs').innerHTML = '';
-  document.getElementById('period-title').textContent = '';
-  document.getElementById('period-sub').textContent = '';
+// ── SAVE: download updated data.json ─────────────────────
+function downloadData() {
+  const json = JSON.stringify(state, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'data.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
-function showNoConfig() {
-  document.getElementById('dash').innerHTML = `
-    <div class="no-config">
-      <div style="font-size:36px;margin-bottom:12px">⚙️</div>
-      <h3>Forbind til GitHub</h3>
-      <p>Klik på "Opsætning" øverst til højre for at forbinde dashboardet til GitHub.<br><br>
-      Du skal gøre dette én gang per computer — herefter hentes og gemmes data automatisk.</p>
-      <button class="btn-save" style="padding:12px 28px;border-radius:10px;border:none;cursor:pointer;font-family:inherit;font-weight:800;font-size:14px" onclick="openSettings()">⚙ Åbn opsætning</button>
-    </div>`;
-}
-
-function showError(msg) {
-  document.getElementById('dash').innerHTML = `
-    <div class="no-config">
-      <div style="font-size:36px;margin-bottom:12px">❌</div>
-      <h3>Fejl</h3>
-      <p>${msg}</p>
-      <button class="btn-save" style="padding:12px 28px;border-radius:10px;border:none;cursor:pointer;font-family:inherit;font-weight:800;font-size:14px" onclick="openSettings()">⚙ Tjek opsætning</button>
-    </div>`;
-}
-
-// ── RENDER ─────────────────────────────────────────────
+// ── RENDER ────────────────────────────────────────────────
 function render() {
   const months = state.months;
   if (!months || months.length === 0) {
-    document.getElementById('dash').innerHTML = `<div class="tip">Ingen data endnu. Klik "+ Tilføj måned" for at tilføje den første periode.</div>`;
+    document.getElementById('dash').innerHTML = `<div class="tip">Ingen data endnu.</div>`;
     return;
   }
 
@@ -480,31 +438,23 @@ function render() {
   document.getElementById('btn-delete').style.display = months.length > 1 ? '' : 'none';
   document.getElementById('btn-edit').style.display = '';
 
-  const rPR   = months.slice(-6).map(m=>totalPR(m));
-  const rHj   = months.slice(-6).map(m=>m.hjemmeside.besøg);
-  const rSes  = months.slice(-6).map(m=>m.hjemmeside.session_tid);
-  const rTilm = months.slice(-6).map(m=>totalTilm(m));
-  const rIGv  = months.slice(-6).map(m=>m.ig.visninger);
-  const rIGi  = months.slice(-6).map(m=>m.ig.interaktioner);
-  const rIGd  = months.slice(-6).map(m=>m.ig.delt);
-  const rFBv  = months.slice(-6).map(m=>m.fb.visninger);
-  const rFlIG = months.slice(-6).map(m=>m.følgere.ig);
-  const rFlFB = months.slice(-6).map(m=>m.følgere.fb);
+  const sl = (fn) => months.slice(-6).map(fn);
 
-  const subItems = (items) => `<div class="sub-grid">${items.map(([label,val,pval])=>
-    `<div class="sub-item"><div class="sub-item-label">${label}</div><div class="sub-item-val">${val}${subTrend(val,pval)}</div></div>`
+  const subItems3 = (items) => `<div class="sub-grid cols3">${items.map(([l,v,pv])=>
+    `<div class="sub-item"><div class="sub-item-label">${l}</div><div class="sub-item-val">${v}${subTrend(v,pv)}</div></div>`
   ).join('')}</div>`;
 
   document.getElementById('dash').innerHTML = `
 
     <div class="section-row"><div class="section-title">📰 PR-indsats</div><div class="section-line"></div></div>
     <div class="grid" style="grid-template-columns:2fr 3fr;align-items:start">
-      ${card('#008AAF','PR i alt', totalPR(c), 'artikler', trend(totalPR(c), p?totalPR(p):null), spark(rPR,'#008AAF'),
+      ${card('#008AAF','PR i alt', totalPR(c), 'artikler', trend(totalPR(c), p?totalPR(p):null),
+        spark(sl(m=>totalPR(m)),'#008AAF'),
         subItems([
-          ['Promovering',      c.pr.promovering,       p?.pr.promovering],
-          ['Fortællinger',     c.pr.fortaellinger,     p?.pr.fortaellinger],
-          ['Ekstern — PM',     c.pr.ekstern_pm,        p?.pr.ekstern_pm],
-          ['Ekstern — dækning',c.pr.ekstern_daekning,  p?.pr.ekstern_daekning],
+          ['Promovering',       c.pr.promovering,      p?.pr.promovering],
+          ['Fortællinger',      c.pr.fortaellinger,    p?.pr.fortaellinger],
+          ['Ekstern — PM',      c.pr.ekstern_pm,       p?.pr.ekstern_pm],
+          ['Ekstern — dækning', c.pr.ekstern_daekning, p?.pr.ekstern_daekning],
         ])
       )}
       <div></div>
@@ -512,47 +462,47 @@ function render() {
 
     <div class="section-row"><div class="section-title">🌐 Hjemmeside</div><div class="section-line"></div></div>
     <div class="grid g3">
-      ${card('#007696','Besøg i alt', fmt(c.hjemmeside.besøg), 'besøg', trend(c.hjemmeside.besøg, p?.hjemmeside.besøg), spark(rHj,'#007696'))}
-      ${card('#005B73','Unikke besøg', fmt(c.hjemmeside.unikke||0), 'besøg', trend(c.hjemmeside.unikke||0, p?.hjemmeside.unikke||0), spark(months.slice(-6).map(m=>m.hjemmeside.unikke||0),'#005B73'))}
-      ${card('#008AAF','Session tid', fmtSek(c.hjemmeside.session_tid), 'min', trend(c.hjemmeside.session_tid, p?.hjemmeside.session_tid), spark(rSes,'#008AAF'))}
+      ${card('#007696','Besøg i alt',   fmt(c.hjemmeside.besøg),          'besøg', trend(c.hjemmeside.besøg,         p?.hjemmeside.besøg),         spark(sl(m=>m.hjemmeside.besøg),'#007696'))}
+      ${card('#005B73','Unikke besøg',  fmt(c.hjemmeside.unikke||0),       'besøg', trend(c.hjemmeside.unikke||0,     p?.hjemmeside.unikke||0),     spark(sl(m=>m.hjemmeside.unikke||0),'#005B73'))}
+      ${card('#008AAF','Session tid',   fmtSek(c.hjemmeside.session_tid),  'min',   trend(c.hjemmeside.session_tid,   p?.hjemmeside.session_tid),   spark(sl(m=>m.hjemmeside.session_tid),'#008AAF'))}
     </div>
     <div class="grid g3" style="margin-top:14px">
-      ${card('#007696','LP: Gavekort', fmt(c.hjemmeside.lp_gavekort||0), 'besøg', trend(c.hjemmeside.lp_gavekort||0, p?.hjemmeside.lp_gavekort||0), spark(months.slice(-6).map(m=>m.hjemmeside.lp_gavekort||0),'#007696'))}
-      ${card('#005B73','LP: Gården', fmt(c.hjemmeside.lp_gaarden||0), 'besøg', trend(c.hjemmeside.lp_gaarden||0, p?.hjemmeside.lp_gaarden||0), spark(months.slice(-6).map(m=>m.hjemmeside.lp_gaarden||0),'#005B73'))}
-      ${card('#008AAF','LP: Roskilde', fmt(c.hjemmeside.lp_roskilde||0), 'besøg', trend(c.hjemmeside.lp_roskilde||0, p?.hjemmeside.lp_roskilde||0), spark(months.slice(-6).map(m=>m.hjemmeside.lp_roskilde||0),'#008AAF'))}
+      ${card('#007696','LP: Gavekort',  fmt(c.hjemmeside.lp_gavekort||0),  'besøg', trend(c.hjemmeside.lp_gavekort||0,  p?.hjemmeside.lp_gavekort||0),  spark(sl(m=>m.hjemmeside.lp_gavekort||0),'#007696'))}
+      ${card('#005B73','LP: Gården',    fmt(c.hjemmeside.lp_gaarden||0),   'besøg', trend(c.hjemmeside.lp_gaarden||0,   p?.hjemmeside.lp_gaarden||0),   spark(sl(m=>m.hjemmeside.lp_gaarden||0),'#005B73'))}
+      ${card('#008AAF','LP: Roskilde',  fmt(c.hjemmeside.lp_roskilde||0),  'besøg', trend(c.hjemmeside.lp_roskilde||0,  p?.hjemmeside.lp_roskilde||0),  spark(sl(m=>m.hjemmeside.lp_roskilde||0),'#008AAF'))}
     </div>
 
     <div class="section-row"><div class="section-title">✅ Tilmeldinger</div><div class="section-line"></div></div>
     <div class="grid" style="grid-template-columns:2fr 3fr;align-items:start">
-      ${card('#C30151','Tilmeldinger i alt', totalTilm(c), 'i alt', trend(totalTilm(c), p?totalTilm(p):null), spark(rTilm,'#C30151'))}
+      ${card('#C30151','Tilmeldinger i alt', totalTilm(c), 'i alt', trend(totalTilm(c), p?totalTilm(p):null), spark(sl(m=>totalTilm(m)),'#C30151'))}
       <div class="card" style="border-top:4px solid #C30151">
         <div class="card-label">Fordeling</div>
-        <div class="sub-grid cols3">
-          ${[['Gavekort',c.tilmeldinger.gavekort,p?.tilmeldinger.gavekort],
-             ['Gården',c.tilmeldinger.gaarden,p?.tilmeldinger.gaarden],
-             ['Roskilde',c.tilmeldinger.roskilde,p?.tilmeldinger.roskilde],
-             ['Sommerlejr',c.tilmeldinger.sommerlejr,p?.tilmeldinger.sommerlejr],
-             ['Løbeløbet',c.tilmeldinger.lobeloebet,p?.tilmeldinger.lobeloebet],
-          ].map(([l,v,pv])=>`<div class="sub-item"><div class="sub-item-label">${l}</div><div class="sub-item-val">${v}${subTrend(v,pv)}</div></div>`).join('')}
-        </div>
+        ${subItems3([
+          ['Gavekort',   c.tilmeldinger.gavekort,   p?.tilmeldinger.gavekort],
+          ['Gården',     c.tilmeldinger.gaarden,    p?.tilmeldinger.gaarden],
+          ['Roskilde',   c.tilmeldinger.roskilde,   p?.tilmeldinger.roskilde],
+          ['Sommerlejr', c.tilmeldinger.sommerlejr, p?.tilmeldinger.sommerlejr],
+          ['Løbeløbet',  c.tilmeldinger.lobeloebet, p?.tilmeldinger.lobeloebet],
+        ])}
       </div>
     </div>
 
     <div class="section-row"><div class="section-title">📸 Instagram</div><div class="section-line"></div></div>
     <div class="grid g4">
-      ${card('#C30151','Visninger', fmt(c.ig.visninger), 'visn.', trend(c.ig.visninger, p?.ig.visninger), spark(rIGv,'#C30151'))}
-      ${card('#008AAF','Interaktioner', fmt(c.ig.interaktioner), 'inter.', trend(c.ig.interaktioner, p?.ig.interaktioner), spark(rIGi,'#008AAF'))}
-      ${card('#007696','Antal delt', fmt(c.ig.delt), 'delt', trend(c.ig.delt, p?.ig.delt), spark(rIGd,'#007696'))}
-      ${card('#C30151','Nye følgere', fmt(c.følgere.ig), 'flg.', trend(c.følgere.ig, p?.følgere.ig), spark(rFlIG,'#C30151'))}
+      ${card('#C30151','Visninger',     fmt(c.ig.visninger),     'visn.',  trend(c.ig.visninger,     p?.ig.visninger),     spark(sl(m=>m.ig.visninger),'#C30151'))}
+      ${card('#008AAF','Interaktioner', fmt(c.ig.interaktioner), 'inter.', trend(c.ig.interaktioner, p?.ig.interaktioner), spark(sl(m=>m.ig.interaktioner),'#008AAF'))}
+      ${card('#007696','Antal delt',    fmt(c.ig.delt),          'delt',   trend(c.ig.delt,          p?.ig.delt),          spark(sl(m=>m.ig.delt),'#007696'))}
+      ${card('#C30151','Nye følgere',   fmt(c.følgere.ig),       'flg.',   trend(c.følgere.ig,       p?.følgere.ig),       spark(sl(m=>m.følgere.ig),'#C30151'))}
     </div>
 
     <div class="section-row"><div class="section-title">👍 Facebook</div><div class="section-line"></div></div>
     <div class="grid g2" style="max-width:440px">
-      ${card('#1877F2','Visninger', fmt(c.fb.visninger), 'visn.', trend(c.fb.visninger, p?.fb.visninger), spark(rFBv,'#1877F2'))}
-      ${card('#1877F2','Nye følgere', fmt(c.følgere.fb), 'flg.', trend(c.følgere.fb, p?.følgere.fb), spark(rFlFB,'#1877F2'))}
+      ${card('#1877F2','Visninger',   fmt(c.fb.visninger),  'visn.', trend(c.fb.visninger,  p?.fb.visninger),  spark(sl(m=>m.fb.visninger),'#1877F2'))}
+      ${card('#1877F2','Nye følgere', fmt(c.følgere.fb),    'flg.',  trend(c.følgere.fb,    p?.følgere.fb),    spark(sl(m=>m.følgere.fb),'#1877F2'))}
     </div>
   `;
 
+  // Table
   if (months.length > 1) {
     document.getElementById('tbl-section').style.display = '';
     document.getElementById('tbl-body').innerHTML = months.map((m,i) =>
@@ -572,7 +522,8 @@ function render() {
     document.getElementById('tbl-section').style.display = 'none';
   }
 
-  updateTip();
+  document.getElementById('tip').innerHTML =
+    `💡 Rediger tallene med <strong>✏️ Rediger periode</strong>, klik derefter <strong>⬇ Download data.json</strong> og upload filen til GitHub — siden opdaterer sig for alle inden for 30 sekunder.`;
 }
 
 function setSel(i) { sel = i; render(); }
@@ -580,86 +531,88 @@ function setSel(i) { sel = i; render(); }
 async function deleteMonth() {
   if (state.months.length <= 1) return;
   if (!confirm(`Slet "${state.months[sel].label}"?`)) return;
-
-  showLoading('Henter nyeste data...');
-  const result = await fetchData();
-  if (!result || result.error) { toast(`❌ ${result?.error || 'Kunne ikke hente data'}`, true); render(); return; }
-  result.sha = await getSHA();
-
-  result.data.months = result.data.months.filter((_,i) => i !== sel);
+  const deleted = state.months.splice(sel, 1);
+  sel = Math.min(sel, state.months.length - 1);
+  render();
   try {
-    await commitData(result.data, result.sha);
-    state = result.data;
-    sel = Math.min(sel, state.months.length - 1);
+    await ghCommit(state);
+    toast('✅ Slettet og gemt på GitHub');
+  } catch(e) {
+    state.months.splice(sel, 0, ...deleted);
+    sel = state.months.indexOf(deleted[0]);
     render();
-    toast('✅ Slettet!');
-  } catch(e) { toast(`❌ ${e.message}`, true); render(); }
+    toast(`❌ ${e.message}`, true);
+  }
 }
 
-// ── MODAL ──────────────────────────────────────────────
+// ── MODAL ─────────────────────────────────────────────────
+function getFormData() {
+  return {
+    pr: { promovering: fv('f-pr-p'), fortaellinger: fv('f-pr-f'), ekstern_pm: fv('f-pr-pm'), ekstern_daekning: fv('f-pr-d') },
+    hjemmeside: { besøg: fv('f-hj-b'), unikke: fv('f-hj-u'), session_tid: (fv('f-hj-min') * 60) + fv('f-hj-sek'), lp_gavekort: fv('f-hj-lpg'), lp_gaarden: fv('f-hj-lpga'), lp_roskilde: fv('f-hj-lpr') },
+    tilmeldinger: { gavekort: fv('f-t-g'), gaarden: fv('f-t-ga'), roskilde: fv('f-t-r'), sommerlejr: fv('f-t-s'), lobeloebet: fv('f-t-l') },
+    ig: { visninger: fv('f-ig-v'), interaktioner: fv('f-ig-i'), delt: fv('f-ig-d') },
+    fb: { visninger: fv('f-fb-v') },
+    følgere: { ig: fv('f-fl-ig'), fb: fv('f-fl-fb') }
+  };
+}
+
+function fillForm(m) {
+  document.getElementById('f-label').value       = m.label;
+  document.getElementById('f-pr-p').value        = m.pr.promovering;
+  document.getElementById('f-pr-f').value        = m.pr.fortaellinger;
+  document.getElementById('f-pr-pm').value       = m.pr.ekstern_pm;
+  document.getElementById('f-pr-d').value        = m.pr.ekstern_daekning;
+  document.getElementById('f-hj-b').value        = m.hjemmeside.besøg;
+  document.getElementById('f-hj-u').value        = m.hjemmeside.unikke||0;
+  document.getElementById('f-hj-min').value      = Math.floor(m.hjemmeside.session_tid / 60);
+  document.getElementById('f-hj-sek').value      = Math.round(m.hjemmeside.session_tid % 60);
+  document.getElementById('f-hj-lpg').value      = m.hjemmeside.lp_gavekort||0;
+  document.getElementById('f-hj-lpga').value     = m.hjemmeside.lp_gaarden||0;
+  document.getElementById('f-hj-lpr').value      = m.hjemmeside.lp_roskilde||0;
+  document.getElementById('f-t-g').value         = m.tilmeldinger.gavekort;
+  document.getElementById('f-t-ga').value        = m.tilmeldinger.gaarden;
+  document.getElementById('f-t-r').value         = m.tilmeldinger.roskilde;
+  document.getElementById('f-t-s').value         = m.tilmeldinger.sommerlejr;
+  document.getElementById('f-t-l').value         = m.tilmeldinger.lobeloebet;
+  document.getElementById('f-ig-v').value        = m.ig.visninger;
+  document.getElementById('f-ig-i').value        = m.ig.interaktioner;
+  document.getElementById('f-ig-d').value        = m.ig.delt;
+  document.getElementById('f-fb-v').value        = m.fb.visninger;
+  document.getElementById('f-fl-ig').value       = m.følgere.ig;
+  document.getElementById('f-fl-fb').value       = m.følgere.fb;
+}
+
 async function openModal() {
   editMode = false;
   document.getElementById('modal').querySelector('h2').textContent = 'Tilføj ny måned';
-  document.getElementById('btn-gem').textContent = 'Gem & publicer';
-  document.getElementById('modal').classList.add('open');
-  document.getElementById('f-label').value = suggestNext();
-  document.getElementById('modal-sub').textContent = 'Henter nyeste data fra GitHub...';
-  document.getElementById('btn-gem').disabled = true;
-
-  // Always fetch fresh data before opening form
-  const result = await fetchData();
-  if (result && !result.error) {
-    state = result.data;
-    document.getElementById('f-label').value = suggestNext();
-    document.getElementById('modal-sub').textContent = `Seneste data: ${state.months[state.months.length-1]?.label || '–'} · Udfyld tallene for den nye periode`;
-  } else {
-    document.getElementById('modal-sub').textContent = `⚠️ ${result?.error || 'Kunne ikke hente data'} — kontrollér din forbindelse.`;
+  document.getElementById('btn-gem').textContent = 'Gem';
+  document.getElementById('modal-sub').textContent = 'Udfyld tallene for den nye periode';
+  document.querySelectorAll('#modal input').forEach(el => el.value = '');
+  const da=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const last = state.months[state.months.length-1]?.label.split(' ');
+  if (last) {
+    const i = da.indexOf(last[0]);
+    if (i !== -1) {
+      const ni = (i+1)%12;
+      document.getElementById('f-label').value = `${da[ni]} ${ni===0?Number(last[1])+1:Number(last[1])}`;
+    }
   }
-  document.getElementById('btn-gem').disabled = false;
+  document.getElementById('modal').classList.add('open');
 }
-
-let editMode = false; // false = tilføj ny, true = rediger eksisterende
 
 function openEditModal() {
   editMode = true;
   const m = state.months[sel];
-  document.getElementById('modal').classList.add('open');
   document.getElementById('modal').querySelector('h2').textContent = `Rediger: ${m.label}`;
   document.getElementById('btn-gem').textContent = 'Gem ændringer';
   document.getElementById('modal-sub').textContent = 'Ret tallene og klik "Gem ændringer"';
-
-  // Pre-fill all fields
-  document.getElementById('f-label').value = m.label;
-  document.getElementById('f-pr-p').value = m.pr.promovering;
-  document.getElementById('f-pr-f').value = m.pr.fortaellinger;
-  document.getElementById('f-pr-pm').value = m.pr.ekstern_pm;
-  document.getElementById('f-pr-d').value = m.pr.ekstern_daekning;
-  document.getElementById('f-hj-b').value = m.hjemmeside.besøg;
-  document.getElementById('f-hj-u').value = m.hjemmeside.unikke||0;
-  document.getElementById('f-hj-min').value = Math.floor(m.hjemmeside.session_tid / 60);
-  document.getElementById('f-hj-sek').value = Math.round(m.hjemmeside.session_tid % 60);
-  document.getElementById('f-hj-lpg').value = m.hjemmeside.lp_gavekort||0;
-  document.getElementById('f-hj-lpga').value = m.hjemmeside.lp_gaarden||0;
-  document.getElementById('f-hj-lpr').value = m.hjemmeside.lp_roskilde||0;
-  document.getElementById('f-t-g').value = m.tilmeldinger.gavekort;
-  document.getElementById('f-t-ga').value = m.tilmeldinger.gaarden;
-  document.getElementById('f-t-r').value = m.tilmeldinger.roskilde;
-  document.getElementById('f-t-s').value = m.tilmeldinger.sommerlejr;
-  document.getElementById('f-t-l').value = m.tilmeldinger.lobeloebet;
-  document.getElementById('f-ig-v').value = m.ig.visninger;
-  document.getElementById('f-ig-i').value = m.ig.interaktioner;
-  document.getElementById('f-ig-d').value = m.ig.delt;
-  document.getElementById('f-fb-v').value = m.fb.visninger;
-  document.getElementById('f-fl-ig').value = m.følgere.ig;
-  document.getElementById('f-fl-fb').value = m.følgere.fb;
+  fillForm(m);
+  document.getElementById('modal').classList.add('open');
 }
 
 function closeModal() {
   document.getElementById('modal').classList.remove('open');
-  document.querySelectorAll('#modal input[type="number"]').forEach(el => el.value = '');
-  document.getElementById('f-label').value = '';
-  document.getElementById('modal').querySelector('h2').textContent = 'Tilføj ny måned';
-  document.getElementById('btn-gem').textContent = 'Gem & publicer';
   editMode = false;
 }
 function closeModalOut(e) { if(e.target===document.getElementById('modal')) closeModal(); }
@@ -667,100 +620,115 @@ function closeModalOut(e) { if(e.target===document.getElementById('modal')) clos
 async function saveMonth() {
   const label = fs('f-label');
   if (!label) { alert('Angiv venligst en månedbetegnelse.'); return; }
-
+  const data = getFormData();
   const btn = document.getElementById('btn-gem');
   btn.disabled = true;
-  btn.innerHTML = '<span class="spin"></span>Henter & gemmer...';
+  btn.innerHTML = '<span class="spin"></span>Gemmer...';
+
+  if (editMode) {
+    state.months[sel] = { ...state.months[sel], label, ...data };
+  } else {
+    state.months.push({ id: Date.now().toString(), label, ...data });
+    sel = state.months.length - 1;
+  }
 
   try {
-    // 1. Fetch the absolute latest data
-    const result = await fetchData();
-    if (!result || result.error) throw new Error(result?.error || 'Kunne ikke hente data fra GitHub');
-    result.sha = await getSHA();
-
-    const monthData = {
-      pr: { promovering: fv('f-pr-p'), fortaellinger: fv('f-pr-f'), ekstern_pm: fv('f-pr-pm'), ekstern_daekning: fv('f-pr-d') },
-      hjemmeside: { besøg: fv('f-hj-b'), unikke: fv('f-hj-u'), session_tid: (fv('f-hj-min') * 60) + fv('f-hj-sek'), lp_gavekort: fv('f-hj-lpg'), lp_gaarden: fv('f-hj-lpga'), lp_roskilde: fv('f-hj-lpr') },
-      tilmeldinger: { gavekort: fv('f-t-g'), gaarden: fv('f-t-ga'), roskilde: fv('f-t-r'), sommerlejr: fv('f-t-s'), lobeloebet: fv('f-t-l') },
-      ig: { visninger: fv('f-ig-v'), interaktioner: fv('f-ig-i'), delt: fv('f-ig-d') },
-      fb: { visninger: fv('f-fb-v') },
-      følgere: { ig: fv('f-fl-ig'), fb: fv('f-fl-fb') }
-    };
-
-    if (editMode) {
-      // 2a. Update existing month
-      const idx = result.data.months.findIndex(m => m.id === state.months[sel].id);
-      if (idx === -1) throw new Error('Måneden blev ikke fundet — prøv igen');
-      result.data.months[idx] = { ...result.data.months[idx], label, ...monthData };
-    } else {
-      // 2b. Add new month
-      result.data.months.push({ id: Date.now().toString(), label, ...monthData });
-      sel = result.data.months.length - 1;
-    }
-
-    // 3. Commit only data.json
-    await commitData(result.data, result.sha);
-
-    state = result.data;
+    await ghCommit(state);
     closeModal();
     render();
-    toast(editMode ? '✅ Ændringer gemt!' : '✅ Publiceret! Data opdateret for alle.');
+    toast(editMode ? '✅ Ændringer gemt på GitHub!' : '✅ Ny måned gemt på GitHub!');
   } catch(e) {
+    // Revert on failure
+    if (editMode) {
+      // Can't easily revert edit, just show error
+    } else {
+      state.months.pop();
+      sel = state.months.length - 1;
+    }
     toast(`❌ ${e.message}`, true);
+    console.error('saveMonth fejl:', e);
   } finally {
     btn.disabled = false;
-    btn.innerHTML = 'Gem & publicer';
+    btn.innerHTML = editMode ? 'Gem ændringer' : 'Gem';
   }
 }
 
-// ── STATUS + TIP ───────────────────────────────────────
-function updateGhStatusUI() {
-  const el = document.getElementById('gh-status');
-  if (gh.token && gh.owner && gh.repo) {
-    el.innerHTML = `<div class="dot"></div> GitHub tilsluttet`;
-  } else {
-    el.innerHTML = `<div class="dot warn"></div> GitHub ikke sat op`;
-  }
+// ── UI HELPERS ────────────────────────────────────────────
+function showLoading(msg='Indlæser...') {
+  document.getElementById('dash').innerHTML = `<div class="loading"><div class="loading-spinner"></div><div>${msg}</div></div>`;
+  document.getElementById('tbl-section').style.display = 'none';
+  document.getElementById('month-tabs').innerHTML = '';
+  document.getElementById('period-title').textContent = '';
+  document.getElementById('period-sub').textContent = '';
 }
 
-function updateTip() {
-  document.getElementById('tip').innerHTML =
-    `✅ Data hentes <strong>live fra GitHub</strong> hver gang siden åbnes — alle i teamet ser altid de nyeste tal.`;
+function showError(msg) {
+  document.getElementById('dash').innerHTML = `
+    <div class="no-config">
+      <div style="font-size:36px;margin-bottom:12px">❌</div>
+      <h3>Kunne ikke hente data</h3>
+      <p>${msg}</p>
+    </div>`;
 }
 
-// ── SETTINGS ───────────────────────────────────────────
+// ── SETTINGS ──────────────────────────────────────────────
 function openSettings() {
   document.getElementById('s-tok').value = gh.token||'';
   document.getElementById('s-own').value = gh.owner||'grimur-sdu';
   document.getElementById('s-rep').value = gh.repo||'kpi-dashboard';
-  document.getElementById('s-branch').value = gh.branch||'main';
-  document.getElementById('s-fil').value = 'data.json';
+  document.getElementById('s-test-result').textContent = '';
   document.getElementById('settings').classList.add('open');
 }
 function closeSettings() { document.getElementById('settings').classList.remove('open'); }
 function closeSettingsOut(e) { if(e.target===document.getElementById('settings')) closeSettings(); }
 
-async function saveSettings() {
-  gh = { token: fs('s-tok'), owner: fs('s-own'), repo: fs('s-rep'), branch: fs('s-branch')||'main' };
-  localStorage.setItem('sdu-gh', JSON.stringify(gh));
-  closeSettings();
-  updateGhStatusUI();
-  toast('✅ Opsætning gemt — henter data...');
-  await init();
+async function testAndSave() {
+  const token = document.getElementById('s-tok').value.trim();
+  const owner = document.getElementById('s-own').value.trim();
+  const repo  = document.getElementById('s-rep').value.trim();
+  const result = document.getElementById('s-test-result');
+  const btn = document.getElementById('btn-test');
+
+  if (!token || !owner || !repo) { result.innerHTML = '⚠️ Udfyld alle felter'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Tester...';
+  result.innerHTML = '⏳ Tester forbindelse til GitHub...';
+
+  try {
+    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/data.json`, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+    });
+    if (res.status === 401) throw new Error('Token ugyldigt — opret et nyt token');
+    if (res.status === 403) throw new Error('Token mangler repo-adgang — sæt hak ved "repo"');
+    if (res.status === 404) throw new Error('Repository eller data.json ikke fundet — tjek stavning');
+    if (!res.ok) throw new Error(`GitHub svarede HTTP ${res.status}`);
+    
+    gh = { token, owner, repo };
+    localStorage.setItem('sdu-gh', JSON.stringify(gh));
+    result.innerHTML = '✅ Forbindelse OK! Opsætning gemt.';
+    updateGhStatus();
+    setTimeout(closeSettings, 1200);
+  } catch(e) {
+    result.innerHTML = `❌ ${e.message}`;
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Test & gem';
+  }
 }
 
-// ── TOAST ──────────────────────────────────────────────
-function toast(msg, err=false) {
+function toast(msg, err=false, duration=3500) {
   let t = document.getElementById('toast');
   if (!t) {
     t = document.createElement('div'); t.id = 'toast';
-    t.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;font-size:14px;font-weight:700;font-family:inherit;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,0.15);transition:opacity 0.3s;white-space:nowrap;';
+    t.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;font-size:14px;font-weight:700;font-family:inherit;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,0.15);transition:opacity 0.3s;white-space:nowrap;max-width:90vw;text-align:center;';
     document.body.appendChild(t);
   }
   t.textContent = msg;
   t.style.background = err ? '#C30151' : '#005B73';
   t.style.color = 'white'; t.style.opacity = '1';
-  clearTimeout(t._h); t._h = setTimeout(() => t.style.opacity = '0', 4000);
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.opacity = '0', duration);
 }
 
 init();
