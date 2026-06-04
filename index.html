@@ -300,65 +300,51 @@
 </div>
 
 <script>
+
+// ── STATE & CONFIG ────────────────────────────────────────
 let state = { months: [] };
 let sel = 0;
 let editMode = false;
-let viewMode = 'ytd'; // 'ytd' or 'month'
+let viewMode = 'ytd';
 let gh = JSON.parse(localStorage.getItem('sdu-gh') || '{}');
 
-// ── GITHUB ────────────────────────────────────────────────
+// ── GITHUB API ────────────────────────────────────────────
 function ghHeaders() {
-  return {
-    'Authorization': `Bearer ${gh.token}`,
-    'Accept': 'application/vnd.github+json',
-    'Content-Type': 'application/json'
-  };
+  return { 'Authorization': `Bearer ${gh.token}`, 'Accept': 'application/vnd.github+json', 'Cache-Control': 'no-cache' };
 }
-
 function ghApiUrl() {
   return `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/data.json`;
 }
-
-async function ghGetSHA() {
+async function ghLoad() {
   const res = await fetch(ghApiUrl(), { headers: ghHeaders() });
-  if (res.status === 401) throw new Error('Token ugyldigt eller udløbet — opret et nyt under ⚙ Opsætning');
-  if (res.status === 403) throw new Error('Token mangler repo-adgang — sæt hak ved "repo" da du oprettede det');
-  if (res.status === 404) throw new Error('data.json ikke fundet i repository — tjek repo-navn og at filen er uploadet');
-  if (!res.ok) throw new Error(`GitHub svarede: HTTP ${res.status}`);
-  const json = await res.json();
-  return json.sha;
+  if (res.status === 401) throw new Error('Token ugyldigt eller udløbet — klik ⚙ Opsætning');
+  if (res.status === 404) throw new Error('data.json ikke fundet — er filen uploadet til GitHub?');
+  if (!res.ok) throw new Error(`GitHub: HTTP ${res.status}`);
+  const j = await res.json();
+  return {
+    data: JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g, ''))))),
+    sha: j.sha
+  };
 }
-
-async function ghCommit(newState) {
-  if (!gh.token || !gh.owner || !gh.repo) {
-    throw new Error('GitHub ikke sat op — klik ⚙ Opsætning');
-  }
-  const sha = await ghGetSHA();
+async function ghSave(newState) {
+  if (!gh.token || !gh.owner || !gh.repo) throw new Error('GitHub ikke sat op — klik ⚙ Opsætning');
+  const { sha } = await ghLoad();
   const body = JSON.stringify(newState, null, 2);
-  const encoded = btoa(unescape(encodeURIComponent(body)));
-  const lastLabel = newState.months[sel]?.label || '';
   const res = await fetch(ghApiUrl(), {
     method: 'PUT',
-    headers: ghHeaders(),
-    body: JSON.stringify({ message: `KPI: ${lastLabel}`, content: encoded, sha })
+    headers: { ...ghHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: `KPI opdatering`,
+      content: btoa(unescape(encodeURIComponent(body))),
+      sha
+    })
   });
   if (res.status === 401) throw new Error('Token ugyldigt eller udløbet');
-  if (res.status === 403) throw new Error('Token mangler skriveadgang');
-  if (res.status === 409) throw new Error('Konflikt — en anden har ændret filen samtidig. Prøv igen');
+  if (res.status === 409) throw new Error('Konflikt — prøv igen');
   if (!res.ok) { const e = await res.json().catch(()=>{}); throw new Error(e?.message || `HTTP ${res.status}`); }
 }
 
-function updateGhStatus() {
-  const el = document.getElementById('gh-status');
-  if (!el) return;
-  if (gh.token && gh.owner && gh.repo) {
-    el.innerHTML = `<div class="dot"></div> GitHub tilsluttet`;
-  } else {
-    el.innerHTML = `<div class="dot warn"></div> <span style="cursor:pointer;text-decoration:underline" onclick="openSettings()">Opsæt GitHub</span>`;
-  }
-}
-
-// ── HELPERS ──────────────────────────────────────────────
+// ── HELPERS ───────────────────────────────────────────────
 const fmt = n => Number(n).toLocaleString('da');
 const fv = id => Number(document.getElementById(id)?.value) || 0;
 const fs = id => (document.getElementById(id)?.value || '').trim();
@@ -366,235 +352,462 @@ const totalPR = m => m.pr.promovering + m.pr.fortaellinger + m.pr.ekstern_pm + m
 const totalTilm = m => m.tilmeldinger.gavekort + m.tilmeldinger.gaarden + m.tilmeldinger.roskilde + m.tilmeldinger.sommerlejr + m.tilmeldinger.lobeloebet;
 
 function fmtSek(sek) {
-  const m = Math.floor(sek / 60);
-  const s = Math.round(sek % 60);
+  const m = Math.floor(sek / 60), s = Math.round(sek % 60);
   return `${m}:${String(s).padStart(2,'0')}`;
 }
-
 function trend(cur, prev) {
-  if (prev == null || prev === undefined) return '';
+  if (prev == null) return '';
   const diff = cur - prev;
   if (diff === 0) return `<span class="trend flat">±0</span>`;
   const pct = prev !== 0 ? Math.abs(diff/prev*100).toFixed(0) : '–';
   return `<span class="trend ${diff>0?'up':'down'}">${diff>0?'▲':'▼'} ${pct}%</span>`;
 }
-
 function spark(vals, color) {
-  if (!vals || vals.length === 0) return '';
+  if (!vals || !vals.length) return '';
   const max = Math.max(...vals, 1);
   return `<div class="spark">${vals.map((v,i)=>{
-    const h = Math.max(4, Math.round(v/max*28));
-    const op = 0.35 + (i/(vals.length-1||1))*0.65;
+    const h = Math.max(4,Math.round(v/max*28)), op = 0.35+(i/(vals.length-1||1))*0.65;
     return `<div class="spark-bar" style="height:${h}px;background:${color};opacity:${op}"></div>`;
   }).join('')}</div>`;
 }
-
 function subTrend(cur, prev) {
   if (prev == null) return '';
   const diff = cur - prev;
-  if (diff === 0) return '';
-  const col = diff > 0 ? '#27ae60' : 'var(--kærlighed)';
-  return `<span class="sub-trend" style="color:${col}">${diff>0?'▲':'▼'}${Math.abs(diff)}</span>`;
+  if (!diff) return '';
+  return `<span class="sub-trend" style="color:${diff>0?'#27ae60':'var(--kærlighed)'}">${diff>0?'▲':'▼'}${Math.abs(diff)}</span>`;
 }
-
 function card(color, label, value, unit, trendHtml, sparkHtml, extra='') {
   return `<div class="card" style="border-top:4px solid ${color}">
     <div class="card-label">${label}</div>
     <div class="val-row"><span class="card-value">${value}</span><span class="card-unit">${unit}</span>${trendHtml}</div>
-    ${extra}${sparkHtml}
-  </div>`;
+    ${extra}${sparkHtml}</div>`;
 }
-
 function subItems(items) {
-  return `<div class="sub-grid">${items.map(([label,val,pval])=>
-    `<div class="sub-item"><div class="sub-item-label">${label}</div><div class="sub-item-val">${val}${subTrend(val,pval)}</div></div>`
+  return `<div class="sub-grid">${items.map(([l,v,pv])=>
+    `<div class="sub-item"><div class="sub-item-label">${l}</div><div class="sub-item-val">${v}${subTrend(v,pv)}</div></div>`
   ).join('')}</div>`;
 }
+function sub3(items) {
+  return `<div class="sub-grid cols3">${items.map(([l,v,pv])=>
+    `<div class="sub-item"><div class="sub-item-label">${l}</div><div class="sub-item-val">${v}${subTrend(v,pv)}</div></div>`
+  ).join('')}</div>`;
+}
+function suggestNext() {
+  const da=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const last = state.months[state.months.length-1]?.label.split(' ');
+  if (!last) return '';
+  const i = da.indexOf(last[0]); if (i===-1) return '';
+  const ni = (i+1)%12;
+  return `${da[ni]} ${ni===0?Number(last[1])+1:Number(last[1])}`;
+}
+function updateGhStatus() {
+  const el = document.getElementById('gh-status');
+  if (!el) return;
+  el.innerHTML = (gh.token && gh.owner && gh.repo)
+    ? `<div class="dot"></div> GitHub tilsluttet`
+    : `<div class="dot warn"></div> <span style="cursor:pointer;text-decoration:underline" onclick="openSettings()">Opsæt GitHub</span>`;
+}
 
-// ── LOAD DATA ─────────────────────────────────────────────
+// ── INIT ──────────────────────────────────────────────────
 async function init() {
   showLoading('Henter data...');
+  updateGhStatus();
+  if (!gh.token || !gh.owner || !gh.repo) { showNoConfig(); return; }
   try {
-    if (!gh.token || !gh.owner || !gh.repo) { showNoConfig(); return; }
-    const apiRes = await fetch(
-      `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/data.json`,
-      { headers: { 'Authorization': `Bearer ${gh.token}`, 'Accept': 'application/vnd.github+json' } }
-    );
-    if (apiRes.status === 401) throw new Error('Token ugyldigt eller udløbet — klik ⚙ Opsætning og opret nyt token');
-    if (apiRes.status === 404) throw new Error('data.json ikke fundet — er filen uploadet?');
-    if (!apiRes.ok) throw new Error(`GitHub svarede: HTTP ${apiRes.status}`);
-    const fileJson = await apiRes.json();
-    const decoded = decodeURIComponent(escape(atob(fileJson.content.replace(/\n/g, ''))));
-    state = JSON.parse(decoded);
+    const { data } = await ghLoad();
+    state = data;
     sel = state.months.length - 1;
     document.getElementById('btn-add').disabled = false;
-    updateGhStatus();
     showYTD();
   } catch(e) {
-    console.error('init fejl:', e.message);
+    console.error('init:', e.message);
     showError(`<strong>${e.message}</strong>`);
   }
 }
-async function openModal() {
-  editMode = false;
-  document.getElementById('modal').querySelector('h2').textContent = 'Tilføj ny måned';
-  document.getElementById('btn-gem').textContent = 'Gem';
-  document.getElementById('modal-sub').textContent = 'Udfyld tallene for den nye periode';
-  document.querySelectorAll('#modal input').forEach(el => el.value = '');
-  const da=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
-  const last = state.months[state.months.length-1]?.label.split(' ');
-  if (last) {
-    const i = da.indexOf(last[0]);
-    if (i !== -1) {
-      const ni = (i+1)%12;
-      document.getElementById('f-label').value = `${da[ni]} ${ni===0?Number(last[1])+1:Number(last[1])}`;
-    }
-  }
-  document.getElementById('modal').classList.add('open');
+
+// ── YTD VIEW ──────────────────────────────────────────────
+function showYTD() {
+  viewMode = 'ytd';
+  const months = state.months;
+  if (!months || !months.length) { document.getElementById('dash').innerHTML = '<div class="tip">Ingen data.</div>'; return; }
+
+  const yr = new Date().getFullYear().toString();
+  const ym = months.filter(m => m.label.includes(yr));
+  const filled = ym.filter(m => totalPR(m)>0 || totalTilm(m)>0 || m.ig.visninger>0);
+  const nf = filled.length;
+  const sum = fn => ym.reduce((a,m)=>a+fn(m),0);
+  const avgF = fn => nf>0 ? Math.round(filled.reduce((a,m)=>a+fn(m),0)/nf) : 0;
+  const pct = Math.round(nf/12*100);
+
+  document.getElementById('month-tabs').innerHTML =
+    `<button class="month-tab ytd-tab active" onclick="showYTD()">📊 Årets overblik</button>` +
+    months.map((m,i)=>`<button class="month-tab" onclick="setSel(${i})">${m.label}</button>`).join('');
+  document.getElementById('period-title').textContent = `${yr} — År til dato`;
+  document.getElementById('period-sub').textContent = nf>0 ? `${nf} af 12 måneder udfyldt` : 'Ingen data endnu';
+  document.getElementById('btn-delete').style.display = 'none';
+  document.getElementById('btn-edit').style.display = 'none';
+
+  document.getElementById('dash').innerHTML = `
+    <div style="margin-bottom:24px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--t);margin-bottom:6px">
+        <span>Årets fremgang</span><span><strong style="color:var(--nat)">${nf}</strong> / 12 måneder udfyldt</span>
+      </div>
+      <div class="progress-bar-wrap"><div class="progress-bar" style="width:${pct}%;background:linear-gradient(90deg,var(--dybet),var(--vesterhavet))"></div></div>
+    </div>
+    <div class="ytd-summary">
+      <div class="ytd-card" style="border-top:4px solid #008AAF">
+        <div class="ytd-card-title"><span>📰</span> PR-indsats</div>
+        <div class="ytd-hero"><div class="ytd-big">${sum(m=>totalPR(m))}</div><div class="ytd-sub">artikler i alt</div></div>
+        <div class="ytd-row"><span class="ytd-row-label">Promovering</span><span class="ytd-row-val">${sum(m=>m.pr.promovering)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Fortællinger</span><span class="ytd-row-val">${sum(m=>m.pr.fortaellinger)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Ekstern — PM</span><span class="ytd-row-val">${sum(m=>m.pr.ekstern_pm)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Ekstern — dækning</span><span class="ytd-row-val">${sum(m=>m.pr.ekstern_daekning)}</span></div>
+      </div>
+      <div class="ytd-card" style="border-top:4px solid #007696">
+        <div class="ytd-card-title"><span>🌐</span> Hjemmeside</div>
+        <div class="ytd-hero"><div class="ytd-big">${fmt(sum(m=>m.hjemmeside.besøg))}</div><div class="ytd-sub">besøg i alt</div></div>
+        <div class="ytd-row"><span class="ytd-row-label">Unikke besøg</span><span class="ytd-row-val">${fmt(sum(m=>m.hjemmeside.unikke||0))}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Gns. session tid</span><span class="ytd-row-val">${fmtSek(avgF(m=>m.hjemmeside.session_tid))}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">LP Gavekort</span><span class="ytd-row-val">${fmt(sum(m=>m.hjemmeside.lp_gavekort||0))}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">LP Gården</span><span class="ytd-row-val">${fmt(sum(m=>m.hjemmeside.lp_gaarden||0))}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">LP Roskilde</span><span class="ytd-row-val">${fmt(sum(m=>m.hjemmeside.lp_roskilde||0))}</span></div>
+      </div>
+      <div class="ytd-card" style="border-top:4px solid #C30151">
+        <div class="ytd-card-title"><span>✅</span> Tilmeldinger</div>
+        <div class="ytd-hero"><div class="ytd-big">${sum(m=>totalTilm(m))}</div><div class="ytd-sub">i alt</div></div>
+        <div class="ytd-row"><span class="ytd-row-label">Gavekort</span><span class="ytd-row-val">${sum(m=>m.tilmeldinger.gavekort)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Gården</span><span class="ytd-row-val">${sum(m=>m.tilmeldinger.gaarden)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Roskilde</span><span class="ytd-row-val">${sum(m=>m.tilmeldinger.roskilde)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Sommerlejr</span><span class="ytd-row-val">${sum(m=>m.tilmeldinger.sommerlejr)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Løbeløbet</span><span class="ytd-row-val">${sum(m=>m.tilmeldinger.lobeloebet)}</span></div>
+      </div>
+      <div class="ytd-card" style="border-top:4px solid #C30151">
+        <div class="ytd-card-title"><span>📸</span> Instagram</div>
+        <div class="ytd-hero"><div class="ytd-big">${fmt(sum(m=>m.ig.visninger))}</div><div class="ytd-sub">visninger i alt</div></div>
+        <div class="ytd-row"><span class="ytd-row-label">Interaktioner</span><span class="ytd-row-val">${fmt(sum(m=>m.ig.interaktioner))}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Antal delt</span><span class="ytd-row-val">${fmt(sum(m=>m.ig.delt))}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Nye følgere</span><span class="ytd-row-val">+${fmt(sum(m=>m.følgere.ig))}</span></div>
+      </div>
+      <div class="ytd-card" style="border-top:4px solid #1877F2">
+        <div class="ytd-card-title"><span>👍</span> Facebook</div>
+        <div class="ytd-hero"><div class="ytd-big">${fmt(sum(m=>m.fb.visninger))}</div><div class="ytd-sub">visninger i alt</div></div>
+        <div class="ytd-row"><span class="ytd-row-label">Nye følgere</span><span class="ytd-row-val">+${fmt(sum(m=>m.følgere.fb))}</span></div>
+      </div>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card"><div class="chart-title"><span>📰</span> PR artikler per måned</div><div class="chart-wrap" id="chart-pr"></div></div>
+      <div class="chart-card"><div class="chart-title"><span>🌐</span> Hjemmesidebesøg per måned</div><div class="chart-wrap" id="chart-hj"></div></div>
+      <div class="chart-card"><div class="chart-title"><span>✅</span> Tilmeldinger per måned</div><div class="chart-wrap" id="chart-tilm"></div></div>
+      <div class="chart-card"><div class="chart-title"><span>📸</span> Instagram per måned</div><div class="chart-wrap" id="chart-ig"></div></div>
+      <div class="chart-card"><div class="chart-title"><span>👥</span> Nye følgere per måned</div><div class="chart-wrap" id="chart-followers"></div></div>
+    </div>`;
+
+  document.getElementById('tbl-section').style.display = 'none';
+  document.getElementById('tip').textContent = '';
+  renderCharts(ym);
 }
 
+// ── MONTH VIEW ────────────────────────────────────────────
+function render() {
+  const months = state.months;
+  const c = months[sel], p = sel>0 ? months[sel-1] : null;
+  const sl = fn => months.slice(-6).map(fn);
+
+  document.getElementById('month-tabs').innerHTML =
+    `<button class="month-tab ytd-tab" onclick="showYTD()">📊 Årets overblik</button>` +
+    months.map((m,i)=>`<button class="month-tab ${viewMode==='month'&&i===sel?'active':''}" onclick="setSel(${i})">${m.label}</button>`).join('');
+  document.getElementById('period-title').textContent = c.label;
+  document.getElementById('period-sub').textContent = p ? `Sammenlignes med ${p.label}` : 'Første periode';
+  document.getElementById('btn-delete').style.display = months.length>1 ? '' : 'none';
+  document.getElementById('btn-edit').style.display = '';
+
+  document.getElementById('dash').innerHTML = `
+    <div class="section-row"><div class="section-title">📰 PR-indsats</div><div class="section-line"></div></div>
+    <div class="grid" style="grid-template-columns:2fr 3fr;align-items:start">
+      ${card('#008AAF','PR i alt',totalPR(c),'artikler',trend(totalPR(c),p?totalPR(p):null),spark(sl(m=>totalPR(m)),'#008AAF'),
+        subItems([['Promovering',c.pr.promovering,p?.pr.promovering],['Fortællinger',c.pr.fortaellinger,p?.pr.fortaellinger],['Ekstern — PM',c.pr.ekstern_pm,p?.pr.ekstern_pm],['Ekstern — dækning',c.pr.ekstern_daekning,p?.pr.ekstern_daekning]]))}
+      <div></div>
+    </div>
+    <div class="section-row"><div class="section-title">🌐 Hjemmeside</div><div class="section-line"></div></div>
+    <div class="grid g3">
+      ${card('#007696','Besøg i alt',fmt(c.hjemmeside.besøg),'besøg',trend(c.hjemmeside.besøg,p?.hjemmeside.besøg),spark(sl(m=>m.hjemmeside.besøg),'#007696'))}
+      ${card('#005B73','Unikke besøg',fmt(c.hjemmeside.unikke||0),'besøg',trend(c.hjemmeside.unikke||0,p?.hjemmeside.unikke||0),spark(sl(m=>m.hjemmeside.unikke||0),'#005B73'))}
+      ${card('#008AAF','Session tid',fmtSek(c.hjemmeside.session_tid),'min',trend(c.hjemmeside.session_tid,p?.hjemmeside.session_tid),spark(sl(m=>m.hjemmeside.session_tid),'#008AAF'))}
+    </div>
+    <div class="grid g3" style="margin-top:14px">
+      ${card('#007696','LP: Gavekort',fmt(c.hjemmeside.lp_gavekort||0),'besøg',trend(c.hjemmeside.lp_gavekort||0,p?.hjemmeside.lp_gavekort||0),spark(sl(m=>m.hjemmeside.lp_gavekort||0),'#007696'))}
+      ${card('#005B73','LP: Gården',fmt(c.hjemmeside.lp_gaarden||0),'besøg',trend(c.hjemmeside.lp_gaarden||0,p?.hjemmeside.lp_gaarden||0),spark(sl(m=>m.hjemmeside.lp_gaarden||0),'#005B73'))}
+      ${card('#008AAF','LP: Roskilde',fmt(c.hjemmeside.lp_roskilde||0),'besøg',trend(c.hjemmeside.lp_roskilde||0,p?.hjemmeside.lp_roskilde||0),spark(sl(m=>m.hjemmeside.lp_roskilde||0),'#008AAF'))}
+    </div>
+    <div class="section-row"><div class="section-title">✅ Tilmeldinger</div><div class="section-line"></div></div>
+    <div class="grid" style="grid-template-columns:2fr 3fr;align-items:start">
+      ${card('#C30151','Tilmeldinger i alt',totalTilm(c),'i alt',trend(totalTilm(c),p?totalTilm(p):null),spark(sl(m=>totalTilm(m)),'#C30151'))}
+      <div class="card" style="border-top:4px solid #C30151">
+        <div class="card-label">Fordeling</div>
+        ${sub3([['Gavekort',c.tilmeldinger.gavekort,p?.tilmeldinger.gavekort],['Gården',c.tilmeldinger.gaarden,p?.tilmeldinger.gaarden],['Roskilde',c.tilmeldinger.roskilde,p?.tilmeldinger.roskilde],['Sommerlejr',c.tilmeldinger.sommerlejr,p?.tilmeldinger.sommerlejr],['Løbeløbet',c.tilmeldinger.lobeloebet,p?.tilmeldinger.lobeloebet]])}
+      </div>
+    </div>
+    <div class="section-row"><div class="section-title">📸 Instagram</div><div class="section-line"></div></div>
+    <div class="grid g4">
+      ${card('#C30151','Visninger',fmt(c.ig.visninger),'visn.',trend(c.ig.visninger,p?.ig.visninger),spark(sl(m=>m.ig.visninger),'#C30151'))}
+      ${card('#008AAF','Interaktioner',fmt(c.ig.interaktioner),'inter.',trend(c.ig.interaktioner,p?.ig.interaktioner),spark(sl(m=>m.ig.interaktioner),'#008AAF'))}
+      ${card('#007696','Antal delt',fmt(c.ig.delt),'delt',trend(c.ig.delt,p?.ig.delt),spark(sl(m=>m.ig.delt),'#007696'))}
+      ${card('#C30151','Nye følgere',fmt(c.følgere.ig),'flg.',trend(c.følgere.ig,p?.følgere.ig),spark(sl(m=>m.følgere.ig),'#C30151'))}
+    </div>
+    <div class="section-row"><div class="section-title">👍 Facebook</div><div class="section-line"></div></div>
+    <div class="grid g2" style="max-width:440px">
+      ${card('#1877F2','Visninger',fmt(c.fb.visninger),'visn.',trend(c.fb.visninger,p?.fb.visninger),spark(sl(m=>m.fb.visninger),'#1877F2'))}
+      ${card('#1877F2','Nye følgere',fmt(c.følgere.fb),'flg.',trend(c.følgere.fb,p?.følgere.fb),spark(sl(m=>m.følgere.fb),'#1877F2'))}
+    </div>`;
+
+  if (months.length>1) {
+    document.getElementById('tbl-section').style.display='';
+    document.getElementById('tbl-body').innerHTML = months.map((m,i)=>
+      `<tr class="${i===sel?'sel':''}" onclick="setSel(${i})">
+        <td><strong>${i===sel?'▶ ':''}${m.label}</strong></td>
+        <td>${totalPR(m)}</td><td>${fmt(m.hjemmeside.besøg)}</td><td>${totalTilm(m)}</td>
+        <td>${fmt(m.ig.visninger)}</td><td>${fmt(m.ig.interaktioner)}</td><td>${fmt(m.fb.visninger)}</td>
+        <td>+${m.følgere.ig}</td><td>+${m.følgere.fb}</td>
+      </tr>`).join('');
+  } else {
+    document.getElementById('tbl-section').style.display='none';
+  }
+  document.getElementById('tip').textContent = '';
+}
+
+function setSel(i) { sel=i; viewMode='month'; render(); }
+
+// ── CHARTS (SVG) ──────────────────────────────────────────
+function renderCharts(ym) {
+  const labels = ym.map(m=>m.label.split(' ')[0]);
+  const W=400, H=160, pad={t:20,r:12,b:28,l:40};
+  const cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+
+  function grid(max,n) {
+    let s='';
+    [0,.25,.5,.75,1].forEach(t=>{
+      const y=pad.t+cH*(1-t), v=Math.round(max*t), txt=v>=1000?(v/1000).toFixed(1)+'k':v;
+      s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="#D8E8EE" stroke-width="1"/>`;
+      s+=`<text x="${pad.l-5}" y="${y+4}" text-anchor="end" font-size="9" fill="#7a9eab">${txt}</text>`;
+    });
+    for(let i=0;i<n;i++){
+      const x=pad.l+(n<=1?cW/2:(i/(n-1))*cW);
+      s+=`<text x="${x}" y="${H-6}" text-anchor="middle" font-size="9" fill="#7a9eab">${labels[i]}</text>`;
+    }
+    return s;
+  }
+
+  function svgWrap(inner){
+    return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">${inner}</svg>`;
+  }
+
+  function barChart(id,datasets,stacked=false){
+    const el=document.getElementById(id); if(!el) return;
+    const n=labels.length, bw=Math.min(cW/n*0.55,28);
+    let max=0;
+    if(stacked){for(let i=0;i<n;i++){const s=datasets.reduce((a,d)=>a+(d.data[i]||0),0);if(s>max)max=s;}}
+    else{datasets.forEach(d=>d.data.forEach(v=>{if(v>max)max=v;}));}
+    let s=grid(max,n);
+    for(let i=0;i<n;i++){
+      const cx=pad.l+(n<=1?cW/2:(i/(n-1))*cW);
+      let yBase=pad.t+cH;
+      datasets.forEach((ds,di)=>{
+        const val=ds.data[i]||0, bh=(val/(max||1))*cH;
+        const bx=stacked?cx-bw/2:cx-(datasets.length*bw/2)+di*bw;
+        const by=stacked?yBase-bh:pad.t+cH-bh;
+        if(bh>0) s+=`<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw}" height="${bh.toFixed(1)}" fill="${ds.color}" rx="2"/>`;
+        if(stacked) yBase-=bh;
+      });
+    }
+    el.innerHTML=svgWrap(s);
+  }
+
+  function lineChart(id,datasets){
+    const el=document.getElementById(id); if(!el) return;
+    const n=labels.length;
+    let max=0; datasets.forEach(d=>d.data.forEach(v=>{if(v>max)max=v;}));
+    let s=grid(max,n);
+    // legend
+    let lx=pad.l;
+    if(datasets.length>1) datasets.forEach(ds=>{
+      s+=`<rect x="${lx}" y="5" width="10" height="6" fill="${ds.color}" rx="1"/>`;
+      s+=`<text x="${lx+13}" y="12" font-size="9" fill="#7a9eab">${ds.label}</text>`;
+      lx+=ds.label.length*5.2+20;
+    });
+    datasets.forEach(ds=>{
+      const pts=ds.data.map((v,i)=>[pad.l+(n<=1?cW/2:(i/(n-1))*cW), pad.t+cH*(1-v/(max||1))]);
+      if(ds.fill&&pts.length>0){
+        const fp=[[pts[0][0],pad.t+cH],...pts,[pts[pts.length-1][0],pad.t+cH]];
+        s+=`<polygon points="${fp.map(p=>p.join(',')).join(' ')}" fill="${ds.fill}"/>`;
+      }
+      if(pts.length>1){
+        const dash=ds.dashed?'stroke-dasharray="5,3"':'';
+        s+=`<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${ds.color}" stroke-width="2.5" stroke-linejoin="round" ${dash}/>`;
+      }
+      pts.forEach(([x,y])=>s+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" fill="${ds.color}" stroke="white" stroke-width="1.5"/>`);
+    });
+    el.innerHTML=svgWrap(s);
+  }
+
+  barChart('chart-pr',[{data:ym.map(m=>totalPR(m)),color:'#008AAF'}]);
+  lineChart('chart-hj',[
+    {label:'Besøg i alt',data:ym.map(m=>m.hjemmeside.besøg),color:'#008AAF',fill:'rgba(0,138,175,0.12)'},
+    {label:'Unikke besøg',data:ym.map(m=>m.hjemmeside.unikke||0),color:'#007696',dashed:true}
+  ]);
+  barChart('chart-tilm',[
+    {data:ym.map(m=>m.tilmeldinger.gavekort),color:'#008AAF'},
+    {data:ym.map(m=>m.tilmeldinger.gaarden),color:'#007696'},
+    {data:ym.map(m=>m.tilmeldinger.roskilde),color:'#005B73'},
+    {data:ym.map(m=>m.tilmeldinger.sommerlejr),color:'#C30151'},
+    {data:ym.map(m=>m.tilmeldinger.lobeloebet),color:'#6B3FA0'},
+  ],true);
+  lineChart('chart-ig',[
+    {label:'Visninger',data:ym.map(m=>m.ig.visninger),color:'#C30151',fill:'rgba(195,1,81,0.08)'},
+    {label:'Interaktioner',data:ym.map(m=>m.ig.interaktioner),color:'#008AAF',dashed:true}
+  ]);
+  lineChart('chart-followers',[
+    {label:'Instagram',data:ym.map(m=>m.følgere.ig),color:'#C30151',fill:'rgba(195,1,81,0.08)'},
+    {label:'Facebook',data:ym.map(m=>m.følgere.fb),color:'#1877F2',dashed:true}
+  ]);
+}
+
+// ── MODAL ─────────────────────────────────────────────────
+function getFormData() {
+  return {
+    pr:{promovering:fv('f-pr-p'),fortaellinger:fv('f-pr-f'),ekstern_pm:fv('f-pr-pm'),ekstern_daekning:fv('f-pr-d')},
+    hjemmeside:{besøg:fv('f-hj-b'),unikke:fv('f-hj-u'),session_tid:(fv('f-hj-min')*60)+fv('f-hj-sek'),lp_gavekort:fv('f-hj-lpg'),lp_gaarden:fv('f-hj-lpga'),lp_roskilde:fv('f-hj-lpr')},
+    tilmeldinger:{gavekort:fv('f-t-g'),gaarden:fv('f-t-ga'),roskilde:fv('f-t-r'),sommerlejr:fv('f-t-s'),lobeloebet:fv('f-t-l')},
+    ig:{visninger:fv('f-ig-v'),interaktioner:fv('f-ig-i'),delt:fv('f-ig-d')},
+    fb:{visninger:fv('f-fb-v')},
+    følgere:{ig:fv('f-fl-ig'),fb:fv('f-fl-fb')}
+  };
+}
+function fillForm(m) {
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};
+  set('f-label',m.label); set('f-pr-p',m.pr.promovering); set('f-pr-f',m.pr.fortaellinger);
+  set('f-pr-pm',m.pr.ekstern_pm); set('f-pr-d',m.pr.ekstern_daekning);
+  set('f-hj-b',m.hjemmeside.besøg); set('f-hj-u',m.hjemmeside.unikke||0);
+  set('f-hj-min',Math.floor(m.hjemmeside.session_tid/60)); set('f-hj-sek',Math.round(m.hjemmeside.session_tid%60));
+  set('f-hj-lpg',m.hjemmeside.lp_gavekort||0); set('f-hj-lpga',m.hjemmeside.lp_gaarden||0); set('f-hj-lpr',m.hjemmeside.lp_roskilde||0);
+  set('f-t-g',m.tilmeldinger.gavekort); set('f-t-ga',m.tilmeldinger.gaarden); set('f-t-r',m.tilmeldinger.roskilde);
+  set('f-t-s',m.tilmeldinger.sommerlejr); set('f-t-l',m.tilmeldinger.lobeloebet);
+  set('f-ig-v',m.ig.visninger); set('f-ig-i',m.ig.interaktioner); set('f-ig-d',m.ig.delt);
+  set('f-fb-v',m.fb.visninger); set('f-fl-ig',m.følgere.ig); set('f-fl-fb',m.følgere.fb);
+}
+async function openModal() {
+  editMode=false;
+  document.getElementById('modal').querySelector('h2').textContent='Tilføj ny måned';
+  document.getElementById('btn-gem').textContent='Gem';
+  document.getElementById('modal-sub').textContent='Udfyld tallene for den nye periode';
+  document.querySelectorAll('#modal input').forEach(el=>el.value='');
+  document.getElementById('f-label').value=suggestNext();
+  document.getElementById('modal').classList.add('open');
+}
 function openEditModal() {
-  editMode = true;
-  const m = state.months[sel];
-  document.getElementById('modal').querySelector('h2').textContent = `Rediger: ${m.label}`;
-  document.getElementById('btn-gem').textContent = 'Gem ændringer';
-  document.getElementById('modal-sub').textContent = 'Ret tallene og klik "Gem ændringer"';
+  editMode=true;
+  const m=state.months[sel];
+  document.getElementById('modal').querySelector('h2').textContent=`Rediger: ${m.label}`;
+  document.getElementById('btn-gem').textContent='Gem ændringer';
+  document.getElementById('modal-sub').textContent='Ret tallene og klik "Gem ændringer"';
   fillForm(m);
   document.getElementById('modal').classList.add('open');
 }
-
-function closeModal() {
-  document.getElementById('modal').classList.remove('open');
-  editMode = false;
-}
+function closeModal() { document.getElementById('modal').classList.remove('open'); editMode=false; }
 function closeModalOut(e) { if(e.target===document.getElementById('modal')) closeModal(); }
 
 async function saveMonth() {
-  const label = fs('f-label');
-  if (!label) { alert('Angiv venligst en månedbetegnelse.'); return; }
-  const data = getFormData();
-  const btn = document.getElementById('btn-gem');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spin"></span>Gemmer...';
-
-  if (editMode) {
-    state.months[sel] = { ...state.months[sel], label, ...data };
-  } else {
-    state.months.push({ id: Date.now().toString(), label, ...data });
-    sel = state.months.length - 1;
-  }
-
+  const label=fs('f-label');
+  if(!label){alert('Angiv en månedbetegnelse.');return;}
+  const btn=document.getElementById('btn-gem');
+  btn.disabled=true; btn.innerHTML='<span class="spin"></span>Gemmer...';
+  const data=getFormData();
+  // Update state
+  if(editMode) state.months[sel]={...state.months[sel],label,...data};
+  else { state.months.push({id:Date.now().toString(),label,...data}); sel=state.months.length-1; }
   try {
-    await ghCommit(state);
-    // Verify by reading back from API
-    const verifyRes = await fetch(`https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/data.json`, {
-      headers: { 'Authorization': `Bearer ${gh.token}`, 'Accept': 'application/vnd.github+json', 'Cache-Control': 'no-cache' }
-    });
-    if (verifyRes.ok) {
-      const vj = await verifyRes.json();
-      const vData = JSON.parse(decodeURIComponent(escape(atob(vj.content.replace(/\n/g,'')))));
-      if (vData.months.length !== state.months.length) {
-        throw new Error('Data blev ikke gemt korrekt — prøv igen');
-      }
-    }
+    await ghSave(state);
     closeModal();
-    render();
-    toast(editMode ? '✅ Gemt og verificeret på GitHub!' : '✅ Ny måned gemt på GitHub!');
+    viewMode==='ytd' ? showYTD() : render();
+    toast(editMode?'✅ Gemt på GitHub!':'✅ Ny måned gemt på GitHub!');
   } catch(e) {
-    // Revert on failure
-    if (editMode) {
-      // Can't easily revert edit, just show error
-    } else {
-      state.months.pop();
-      sel = state.months.length - 1;
-    }
-    toast(`❌ ${e.message}`, true);
-    console.error('saveMonth fejl:', e);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = editMode ? 'Gem ændringer' : 'Gem';
+    // Revert
+    if(!editMode){state.months.pop();sel=state.months.length-1;}
+    toast(`❌ ${e.message}`,true);
+    console.error('saveMonth:',e);
+  } finally { btn.disabled=false; btn.innerHTML=editMode?'Gem ændringer':'Gem'; }
+}
+
+async function deleteMonth() {
+  if(state.months.length<=1) return;
+  if(!confirm(`Slet "${state.months[sel].label}"?`)) return;
+  const deleted=state.months.splice(sel,1);
+  sel=Math.min(sel,state.months.length-1);
+  try {
+    await ghSave(state);
+    toast('✅ Slettet');
+    showYTD();
+  } catch(e) {
+    state.months.splice(sel,0,...deleted);
+    toast(`❌ ${e.message}`,true);
   }
 }
 
-// ── UI HELPERS ────────────────────────────────────────────
+// ── UI ────────────────────────────────────────────────────
 function showLoading(msg='Indlæser...') {
-  document.getElementById('dash').innerHTML = `<div class="loading"><div class="loading-spinner"></div><div>${msg}</div></div>`;
-  document.getElementById('tbl-section').style.display = 'none';
-  document.getElementById('month-tabs').innerHTML = '';
-  document.getElementById('period-title').textContent = '';
-  document.getElementById('period-sub').textContent = '';
+  document.getElementById('dash').innerHTML=`<div class="loading"><div class="loading-spinner"></div><div>${msg}</div></div>`;
+  document.getElementById('tbl-section').style.display='none';
+  document.getElementById('month-tabs').innerHTML='';
+  document.getElementById('period-title').textContent='';
+  document.getElementById('period-sub').textContent='';
 }
-
+function showNoConfig() {
+  document.getElementById('dash').innerHTML=`<div class="no-config"><div style="font-size:36px;margin-bottom:12px">⚙️</div><h3>Forbind til GitHub</h3><p>Klik på "Opsætning" for at forbinde til GitHub. Du skal gøre det én gang per computer.</p><button class="btn-save" style="padding:12px 28px;border-radius:10px;border:none;cursor:pointer;font-family:inherit;font-weight:800;font-size:14px" onclick="openSettings()">⚙ Åbn opsætning</button></div>`;
+}
 function showError(msg) {
-  document.getElementById('dash').innerHTML = `
-    <div class="no-config">
-      <div style="font-size:36px;margin-bottom:12px">❌</div>
-      <h3>Kunne ikke hente data</h3>
-      <p>${msg}</p>
-    </div>`;
+  document.getElementById('dash').innerHTML=`<div class="no-config"><div style="font-size:36px;margin-bottom:12px">❌</div><h3>Fejl</h3><p>${msg}</p><button class="btn-save" style="padding:12px 28px;border-radius:10px;border:none;cursor:pointer;font-family:inherit;font-weight:800;font-size:14px" onclick="openSettings()">⚙ Tjek opsætning</button></div>`;
+}
+function toast(msg,err=false,dur=3500) {
+  let t=document.getElementById('toast');
+  if(!t){t=document.createElement('div');t.id='toast';t.style.cssText='position:fixed;bottom:28px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;font-size:14px;font-weight:700;font-family:inherit;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,0.15);transition:opacity 0.3s;white-space:nowrap;max-width:90vw;text-align:center;';document.body.appendChild(t);}
+  t.textContent=msg;t.style.background=err?'#C30151':'#005B73';t.style.color='white';t.style.opacity='1';
+  clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity='0',dur);
 }
 
 // ── SETTINGS ──────────────────────────────────────────────
 function openSettings() {
-  document.getElementById('s-tok').value = gh.token||'';
-  document.getElementById('s-own').value = gh.owner||'grimur-sdu';
-  document.getElementById('s-rep').value = gh.repo||'kpi-dashboard';
-  document.getElementById('s-test-result').textContent = '';
+  document.getElementById('s-tok').value=gh.token||'';
+  document.getElementById('s-own').value=gh.owner||'grimur-sdu';
+  document.getElementById('s-rep').value=gh.repo||'kpi-dashboard';
+  document.getElementById('s-test-result').textContent='';
   document.getElementById('settings').classList.add('open');
 }
-function closeSettings() { document.getElementById('settings').classList.remove('open'); }
-function closeSettingsOut(e) { if(e.target===document.getElementById('settings')) closeSettings(); }
-
+function closeSettings(){document.getElementById('settings').classList.remove('open');}
+function closeSettingsOut(e){if(e.target===document.getElementById('settings'))closeSettings();}
 async function testAndSave() {
-  const token = document.getElementById('s-tok').value.trim();
-  const owner = document.getElementById('s-own').value.trim();
-  const repo  = document.getElementById('s-rep').value.trim();
-  const result = document.getElementById('s-test-result');
-  const btn = document.getElementById('btn-test');
-
-  if (!token || !owner || !repo) { result.innerHTML = '⚠️ Udfyld alle felter'; return; }
-
-  btn.disabled = true;
-  btn.textContent = 'Tester...';
-  result.innerHTML = '⏳ Tester forbindelse til GitHub...';
-
+  const token=document.getElementById('s-tok').value.trim();
+  const owner=document.getElementById('s-own').value.trim();
+  const repo=document.getElementById('s-rep').value.trim();
+  const result=document.getElementById('s-test-result');
+  const btn=document.getElementById('btn-test');
+  if(!token||!owner||!repo){result.innerHTML='⚠️ Udfyld alle felter';return;}
+  btn.disabled=true;btn.textContent='Tester...';result.innerHTML='⏳ Tester...';
   try {
-    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/data.json`, {
-      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
-    });
-    if (res.status === 401) throw new Error('Token ugyldigt — opret et nyt token');
-    if (res.status === 403) throw new Error('Token mangler repo-adgang — sæt hak ved "repo"');
-    if (res.status === 404) throw new Error('Repository eller data.json ikke fundet — tjek stavning');
-    if (!res.ok) throw new Error(`GitHub svarede HTTP ${res.status}`);
-    
-    gh = { token, owner, repo };
-    localStorage.setItem('sdu-gh', JSON.stringify(gh));
-    result.innerHTML = '✅ Forbindelse OK! Opsætning gemt.';
+    const res=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/data.json`,{headers:{'Authorization':`Bearer ${token}`,'Accept':'application/vnd.github+json'}});
+    if(res.status===401) throw new Error('Token ugyldigt — opret et nyt');
+    if(res.status===403) throw new Error('Token mangler repo-adgang');
+    if(res.status===404) throw new Error('Repo eller data.json ikke fundet');
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    gh={token,owner,repo};
+    localStorage.setItem('sdu-gh',JSON.stringify(gh));
+    result.innerHTML='✅ Forbindelse OK!';
     updateGhStatus();
-    setTimeout(closeSettings, 1200);
-  } catch(e) {
-    result.innerHTML = `❌ ${e.message}`;
-    console.error(e);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Test & gem';
-  }
-}
-
-function toast(msg, err=false, duration=3500) {
-  let t = document.getElementById('toast');
-  if (!t) {
-    t = document.createElement('div'); t.id = 'toast';
-    t.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;font-size:14px;font-weight:700;font-family:inherit;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,0.15);transition:opacity 0.3s;white-space:nowrap;max-width:90vw;text-align:center;';
-    document.body.appendChild(t);
-  }
-  t.textContent = msg;
-  t.style.background = err ? '#C30151' : '#005B73';
-  t.style.color = 'white'; t.style.opacity = '1';
-  clearTimeout(t._h); t._h = setTimeout(() => t.style.opacity = '0', duration);
+    setTimeout(async()=>{closeSettings();await init();},800);
+  } catch(e){result.innerHTML=`❌ ${e.message}`;}
+  finally{btn.disabled=false;btn.textContent='Test & gem';}
 }
 
 init();
+
 </script>
 </body>
 </html>
