@@ -429,7 +429,7 @@ async function init() {
     sel = state.months.length - 1;
     document.getElementById('btn-add').disabled = false;
     updateGhStatus();
-    renderYTD();
+    showYTD();
   } catch(e) {
     console.error('init fejl:', e.message);
     showError(`<strong>${e.message}</strong>`);
