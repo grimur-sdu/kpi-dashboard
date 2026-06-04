@@ -1,45 +1,8 @@
 {
   "months": [
     {
-      "id": "apr-2025",
-      "label": "Apr 2025",
-      "pr": {
-        "promovering": 4,
-        "fortaellinger": 3,
-        "ekstern_pm": 2,
-        "ekstern_daekning": 1
-      },
-      "hjemmeside": {
-        "besøg": 1890,
-        "unikke": 1240,
-        "session_tid": 144,
-        "lp_gavekort": 87,
-        "lp_gaarden": 54,
-        "lp_roskilde": 203
-      },
-      "tilmeldinger": {
-        "gavekort": 11,
-        "gaarden": 5,
-        "roskilde": 31,
-        "sommerlejr": 8,
-        "lobeloebet": 0
-      },
-      "ig": {
-        "visninger": 7200,
-        "interaktioner": 312,
-        "delt": 44
-      },
-      "fb": {
-        "visninger": 3100
-      },
-      "følgere": {
-        "ig": 47,
-        "fb": 23
-      }
-    },
-    {
-      "id": "1780557088848",
-      "label": "Januar 2026",
+      "id": "jan-2026",
+      "label": "Jan 2026",
       "pr": {
         "promovering": 0,
         "fortaellinger": 0,
@@ -52,7 +15,7 @@
         "session_tid": 0,
         "lp_gavekort": 0,
         "lp_gaarden": 0,
-        "lp_roskilde": 2
+        "lp_roskilde": 0
       },
       "tilmeldinger": {
         "gavekort": 0,
@@ -75,8 +38,8 @@
       }
     },
     {
-      "id": "1780557209731",
-      "label": "Februar 2026",
+      "id": "feb-2026",
+      "label": "Feb 2026",
       "pr": {
         "promovering": 0,
         "fortaellinger": 0,
@@ -89,7 +52,377 @@
         "session_tid": 0,
         "lp_gavekort": 0,
         "lp_gaarden": 0,
-        "lp_roskilde": 22
+        "lp_roskilde": 0
+      },
+      "tilmeldinger": {
+        "gavekort": 0,
+        "gaarden": 0,
+        "roskilde": 0,
+        "sommerlejr": 0,
+        "lobeloebet": 0
+      },
+      "ig": {
+        "visninger": 0,
+        "interaktioner": 0,
+        "delt": 0
+      },
+      "fb": {
+        "visninger": 0
+      },
+      "følgere": {
+        "ig": 0,
+        "fb": 0
+      }
+    },
+    {
+      "id": "mar-2026",
+      "label": "Mar 2026",
+      "pr": {
+        "promovering": 0,
+        "fortaellinger": 0,
+        "ekstern_pm": 0,
+        "ekstern_daekning": 0
+      },
+      "hjemmeside": {
+        "besøg": 0,
+        "unikke": 0,
+        "session_tid": 0,
+        "lp_gavekort": 0,
+        "lp_gaarden": 0,
+        "lp_roskilde": 0
+      },
+      "tilmeldinger": {
+        "gavekort": 0,
+        "gaarden": 0,
+        "roskilde": 0,
+        "sommerlejr": 0,
+        "lobeloebet": 0
+      },
+      "ig": {
+        "visninger": 0,
+        "interaktioner": 0,
+        "delt": 0
+      },
+      "fb": {
+        "visninger": 0
+      },
+      "følgere": {
+        "ig": 0,
+        "fb": 0
+      }
+    },
+    {
+      "id": "apr-2026",
+      "label": "Apr 2026",
+      "pr": {
+        "promovering": 0,
+        "fortaellinger": 0,
+        "ekstern_pm": 0,
+        "ekstern_daekning": 0
+      },
+      "hjemmeside": {
+        "besøg": 0,
+        "unikke": 0,
+        "session_tid": 0,
+        "lp_gavekort": 0,
+        "lp_gaarden": 0,
+        "lp_roskilde": 0
+      },
+      "tilmeldinger": {
+        "gavekort": 0,
+        "gaarden": 0,
+        "roskilde": 0,
+        "sommerlejr": 0,
+        "lobeloebet": 0
+      },
+      "ig": {
+        "visninger": 0,
+        "interaktioner": 0,
+        "delt": 0
+      },
+      "fb": {
+        "visninger": 0
+      },
+      "følgere": {
+        "ig": 0,
+        "fb": 0
+      }
+    },
+    {
+      "id": "maj-2026",
+      "label": "Maj 2026",
+      "pr": {
+        "promovering": 0,
+        "fortaellinger": 0,
+        "ekstern_pm": 0,
+        "ekstern_daekning": 0
+      },
+      "hjemmeside": {
+        "besøg": 0,
+        "unikke": 0,
+        "session_tid": 0,
+        "lp_gavekort": 0,
+        "lp_gaarden": 0,
+        "lp_roskilde": 0
+      },
+      "tilmeldinger": {
+        "gavekort": 0,
+        "gaarden": 0,
+        "roskilde": 0,
+        "sommerlejr": 0,
+        "lobeloebet": 0
+      },
+      "ig": {
+        "visninger": 0,
+        "interaktioner": 0,
+        "delt": 0
+      },
+      "fb": {
+        "visninger": 0
+      },
+      "følgere": {
+        "ig": 0,
+        "fb": 0
+      }
+    },
+    {
+      "id": "jun-2026",
+      "label": "Jun 2026",
+      "pr": {
+        "promovering": 0,
+        "fortaellinger": 0,
+        "ekstern_pm": 0,
+        "ekstern_daekning": 0
+      },
+      "hjemmeside": {
+        "besøg": 0,
+        "unikke": 0,
+        "session_tid": 0,
+        "lp_gavekort": 0,
+        "lp_gaarden": 0,
+        "lp_roskilde": 0
+      },
+      "tilmeldinger": {
+        "gavekort": 0,
+        "gaarden": 0,
+        "roskilde": 0,
+        "sommerlejr": 0,
+        "lobeloebet": 0
+      },
+      "ig": {
+        "visninger": 0,
+        "interaktioner": 0,
+        "delt": 0
+      },
+      "fb": {
+        "visninger": 0
+      },
+      "følgere": {
+        "ig": 0,
+        "fb": 0
+      }
+    },
+    {
+      "id": "jul-2026",
+      "label": "Jul 2026",
+      "pr": {
+        "promovering": 0,
+        "fortaellinger": 0,
+        "ekstern_pm": 0,
+        "ekstern_daekning": 0
+      },
+      "hjemmeside": {
+        "besøg": 0,
+        "unikke": 0,
+        "session_tid": 0,
+        "lp_gavekort": 0,
+        "lp_gaarden": 0,
+        "lp_roskilde": 0
+      },
+      "tilmeldinger": {
+        "gavekort": 0,
+        "gaarden": 0,
+        "roskilde": 0,
+        "sommerlejr": 0,
+        "lobeloebet": 0
+      },
+      "ig": {
+        "visninger": 0,
+        "interaktioner": 0,
+        "delt": 0
+      },
+      "fb": {
+        "visninger": 0
+      },
+      "følgere": {
+        "ig": 0,
+        "fb": 0
+      }
+    },
+    {
+      "id": "aug-2026",
+      "label": "Aug 2026",
+      "pr": {
+        "promovering": 0,
+        "fortaellinger": 0,
+        "ekstern_pm": 0,
+        "ekstern_daekning": 0
+      },
+      "hjemmeside": {
+        "besøg": 0,
+        "unikke": 0,
+        "session_tid": 0,
+        "lp_gavekort": 0,
+        "lp_gaarden": 0,
+        "lp_roskilde": 0
+      },
+      "tilmeldinger": {
+        "gavekort": 0,
+        "gaarden": 0,
+        "roskilde": 0,
+        "sommerlejr": 0,
+        "lobeloebet": 0
+      },
+      "ig": {
+        "visninger": 0,
+        "interaktioner": 0,
+        "delt": 0
+      },
+      "fb": {
+        "visninger": 0
+      },
+      "følgere": {
+        "ig": 0,
+        "fb": 0
+      }
+    },
+    {
+      "id": "sep-2026",
+      "label": "Sep 2026",
+      "pr": {
+        "promovering": 0,
+        "fortaellinger": 0,
+        "ekstern_pm": 0,
+        "ekstern_daekning": 0
+      },
+      "hjemmeside": {
+        "besøg": 0,
+        "unikke": 0,
+        "session_tid": 0,
+        "lp_gavekort": 0,
+        "lp_gaarden": 0,
+        "lp_roskilde": 0
+      },
+      "tilmeldinger": {
+        "gavekort": 0,
+        "gaarden": 0,
+        "roskilde": 0,
+        "sommerlejr": 0,
+        "lobeloebet": 0
+      },
+      "ig": {
+        "visninger": 0,
+        "interaktioner": 0,
+        "delt": 0
+      },
+      "fb": {
+        "visninger": 0
+      },
+      "følgere": {
+        "ig": 0,
+        "fb": 0
+      }
+    },
+    {
+      "id": "okt-2026",
+      "label": "Okt 2026",
+      "pr": {
+        "promovering": 0,
+        "fortaellinger": 0,
+        "ekstern_pm": 0,
+        "ekstern_daekning": 0
+      },
+      "hjemmeside": {
+        "besøg": 0,
+        "unikke": 0,
+        "session_tid": 0,
+        "lp_gavekort": 0,
+        "lp_gaarden": 0,
+        "lp_roskilde": 0
+      },
+      "tilmeldinger": {
+        "gavekort": 0,
+        "gaarden": 0,
+        "roskilde": 0,
+        "sommerlejr": 0,
+        "lobeloebet": 0
+      },
+      "ig": {
+        "visninger": 0,
+        "interaktioner": 0,
+        "delt": 0
+      },
+      "fb": {
+        "visninger": 0
+      },
+      "følgere": {
+        "ig": 0,
+        "fb": 0
+      }
+    },
+    {
+      "id": "nov-2026",
+      "label": "Nov 2026",
+      "pr": {
+        "promovering": 0,
+        "fortaellinger": 0,
+        "ekstern_pm": 0,
+        "ekstern_daekning": 0
+      },
+      "hjemmeside": {
+        "besøg": 0,
+        "unikke": 0,
+        "session_tid": 0,
+        "lp_gavekort": 0,
+        "lp_gaarden": 0,
+        "lp_roskilde": 0
+      },
+      "tilmeldinger": {
+        "gavekort": 0,
+        "gaarden": 0,
+        "roskilde": 0,
+        "sommerlejr": 0,
+        "lobeloebet": 0
+      },
+      "ig": {
+        "visninger": 0,
+        "interaktioner": 0,
+        "delt": 0
+      },
+      "fb": {
+        "visninger": 0
+      },
+      "følgere": {
+        "ig": 0,
+        "fb": 0
+      }
+    },
+    {
+      "id": "dec-2026",
+      "label": "Dec 2026",
+      "pr": {
+        "promovering": 0,
+        "fortaellinger": 0,
+        "ekstern_pm": 0,
+        "ekstern_daekning": 0
+      },
+      "hjemmeside": {
+        "besøg": 0,
+        "unikke": 0,
+        "session_tid": 0,
+        "lp_gavekort": 0,
+        "lp_gaarden": 0,
+        "lp_roskilde": 0
       },
       "tilmeldinger": {
         "gavekort": 0,
