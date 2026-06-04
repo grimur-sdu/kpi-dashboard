@@ -316,8 +316,10 @@ function ghApiUrl() {
   return `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/data.json`;
 }
 async function ghLoad() {
-  const res = await fetch(ghApiUrl(), { headers: ghHeaders() });
-  if (res.status === 401) throw new Error('Token ugyldigt eller udløbet — klik ⚙ Opsætning');
+  // Ingen Authorization header ved læsning — undgår CORS preflight-problemer
+  // Public repo: virker uden token. SHA bruges til efterfølgende commit.
+  const url = `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/data.json`;
+  const res = await fetch(url, { headers: { 'Accept': 'application/vnd.github+json' } });
   if (res.status === 404) throw new Error('data.json ikke fundet — er filen uploadet til GitHub?');
   if (!res.ok) throw new Error(`GitHub: HTTP ${res.status}`);
   const j = await res.json();
