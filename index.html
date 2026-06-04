@@ -114,6 +114,21 @@
   .spin { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.35); border-top-color: white; border-radius: 50%; animation: sp 0.6s linear infinite; margin-right: 5px; vertical-align: middle; }
   @keyframes sp { to { transform: rotate(360deg); } }
 
+  .ytd-tab { background: rgba(255,255,255,0.2) !important; color: white !important; border-color: rgba(255,255,255,0.6) !important; font-weight: 800 !important; letter-spacing: 0.3px; }
+  .ytd-tab.active { background: var(--lys) !important; color: var(--nat) !important; }
+  .ytd-summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-bottom: 28px; }
+  .ytd-card { background: var(--hvid); border-radius: 16px; padding: 20px 22px; box-shadow: 0 2px 12px rgba(0,91,115,0.08); }
+  .ytd-card-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--t); margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid var(--grå); display:flex; align-items:center; gap:6px; }
+  .ytd-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--grå); }
+  .ytd-row:last-child { border-bottom: none; }
+  .ytd-row-label { font-size: 12px; color: var(--t); }
+  .ytd-row-val { font-size: 15px; font-weight: 800; color: var(--nat); }
+  .ytd-big { font-size: 36px; font-weight: 800; color: var(--nat); line-height: 1; }
+  .ytd-sub { font-size: 12px; color: var(--t); margin-top: 4px; }
+  .ytd-hero { display: flex; align-items: baseline; gap: 6px; margin-bottom: 12px; }
+  .progress-bar-wrap { height: 6px; background: var(--grå); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .progress-bar { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+
   @media (max-width: 720px) {
     .g2_3 { grid-template-columns: 1fr 1fr; }
     .g3, .g4 { grid-template-columns: 1fr 1fr; }
@@ -141,7 +156,9 @@
       <button class="btn-header primary" id="btn-add" onclick="openModal()" disabled>+ Tilføj måned</button>
     </div>
   </div>
-  <div class="month-tabs" id="month-tabs"></div>
+  <div class="month-tabs" id="month-tabs">
+    <button class="month-tab ytd-tab active" id="ytd-tab" onclick="showYTD()">📊 Årets overblik</button>
+  </div>
 </div>
 
 <div class="body">
@@ -280,6 +297,7 @@
 let state = { months: [] };
 let sel = 0;
 let editMode = false;
+let viewMode = 'ytd'; // 'ytd' or 'month'
 let gh = JSON.parse(localStorage.getItem('sdu-gh') || '{}');
 
 // ── GITHUB ────────────────────────────────────────────────
@@ -400,7 +418,7 @@ async function init() {
     sel = state.months.length - 1;
     document.getElementById('btn-add').disabled = false;
     updateGhStatus();
-    render();
+    renderYTD();
   } catch(e) {
     console.error(e);
     showError(`Kunne ikke hente data.json<br><br><code>${e.message}</code><br><br>Tjek at <strong>data.json</strong> ligger i dit GitHub repository.`);
@@ -429,9 +447,11 @@ function render() {
   const c = months[sel];
   const p = sel > 0 ? months[sel-1] : null;
 
-  document.getElementById('month-tabs').innerHTML = months.map((m,i) =>
-    `<button class="month-tab ${i===sel?'active':''}" onclick="setSel(${i})">${m.label}</button>`
-  ).join('');
+  document.getElementById('month-tabs').innerHTML =
+    `<button class="month-tab ytd-tab ${viewMode==='ytd'?'active':''}" onclick="showYTD()">📊 Årets overblik</button>` +
+    months.map((m,i) =>
+      `<button class="month-tab ${viewMode==='month'&&i===sel?'active':''}" onclick="setSel(${i})">${m.label}</button>`
+    ).join('');
 
   document.getElementById('period-title').textContent = c.label;
   document.getElementById('period-sub').textContent = p ? `Sammenlignes med ${p.label}` : 'Første periode';
@@ -526,7 +546,128 @@ function render() {
     `💡 Rediger tallene med <strong>✏️ Rediger periode</strong>, klik derefter <strong>⬇ Download data.json</strong> og upload filen til GitHub — siden opdaterer sig for alle inden for 30 sekunder.`;
 }
 
-function setSel(i) { sel = i; render(); }
+function showYTD() {
+  viewMode = 'ytd';
+  renderYTD();
+}
+
+function setSel(i) {
+  sel = i;
+  viewMode = 'month';
+  render();
+}
+
+function renderYTD() {
+  const months = state.months;
+  if (!months || months.length === 0) return;
+
+  // Get current year's months
+  const currentYear = new Date().getFullYear().toString();
+  const yearMonths = months.filter(m => m.label.includes(currentYear));
+  const n = yearMonths.length;
+  const filled = yearMonths.filter(m => totalPR(m) > 0 || totalTilm(m) > 0 || m.ig.visninger > 0);
+  const nFilled = filled.length;
+
+  // Aggregates
+  const sum = (fn) => yearMonths.reduce((acc, m) => acc + fn(m), 0);
+  const avg = (fn) => n > 0 ? Math.round(sum(fn) / n) : 0;
+  const avgFilled = (fn) => nFilled > 0 ? Math.round(filled.reduce((acc,m)=>acc+fn(m),0) / nFilled) : 0;
+
+  const prTotal       = sum(m => totalPR(m));
+  const tilmTotal     = sum(m => totalTilm(m));
+  const hjBesøg       = sum(m => m.hjemmeside.besøg);
+  const hjUnikke      = sum(m => m.hjemmeside.unikke||0);
+  const hjLPGavekort  = sum(m => m.hjemmeside.lp_gavekort||0);
+  const hjLPGaarden   = sum(m => m.hjemmeside.lp_gaarden||0);
+  const hjLPRoskilde  = sum(m => m.hjemmeside.lp_roskilde||0);
+  const avgSession    = avgFilled(m => m.hjemmeside.session_tid);
+  const igVisninger   = sum(m => m.ig.visninger);
+  const igInter       = sum(m => m.ig.interaktioner);
+  const igDelt        = sum(m => m.ig.delt);
+  const igFollowers   = sum(m => m.følgere.ig);
+  const fbVisninger   = sum(m => m.fb.visninger);
+  const fbFollowers   = sum(m => m.følgere.fb);
+
+  // Update tabs
+  document.getElementById('month-tabs').innerHTML =
+    `<button class="month-tab ytd-tab active" onclick="showYTD()">📊 Årets overblik</button>` +
+    months.map((m,i) =>
+      `<button class="month-tab" onclick="setSel(${i})">${m.label}</button>`
+    ).join('');
+
+  document.getElementById('period-title').textContent = `${currentYear} — År til dato`;
+  document.getElementById('period-sub').textContent = nFilled > 0
+    ? `Baseret på ${nFilled} af 12 måneder · ${12-nFilled} måneder tilbage`
+    : 'Ingen data endnu for dette år';
+  document.getElementById('btn-delete').style.display = 'none';
+  document.getElementById('btn-edit').style.display = 'none';
+
+  // Progress bar (% of year filled)
+  const pct = Math.round((nFilled / 12) * 100);
+
+  document.getElementById('dash').innerHTML = `
+    <div style="margin-bottom:24px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--t);margin-bottom:6px">
+        <span>Årets fremgang</span>
+        <span><strong style="color:var(--nat)">${nFilled}</strong> / 12 måneder udfyldt</span>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" style="width:${pct}%;background:linear-gradient(90deg,var(--dybet),var(--vesterhavet))"></div>
+      </div>
+    </div>
+
+    <div class="ytd-summary">
+
+      <div class="ytd-card" style="border-top:4px solid #008AAF">
+        <div class="ytd-card-title"><span>📰</span> PR-indsats</div>
+        <div class="ytd-hero"><div class="ytd-big">${prTotal}</div><div class="ytd-sub">artikler i alt</div></div>
+        <div class="ytd-row"><span class="ytd-row-label">Promovering</span><span class="ytd-row-val">${sum(m=>m.pr.promovering)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Fortællinger</span><span class="ytd-row-val">${sum(m=>m.pr.fortaellinger)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Ekstern — PM</span><span class="ytd-row-val">${sum(m=>m.pr.ekstern_pm)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Ekstern — dækning</span><span class="ytd-row-val">${sum(m=>m.pr.ekstern_daekning)}</span></div>
+      </div>
+
+      <div class="ytd-card" style="border-top:4px solid #007696">
+        <div class="ytd-card-title"><span>🌐</span> Hjemmeside</div>
+        <div class="ytd-hero"><div class="ytd-big">${fmt(hjBesøg)}</div><div class="ytd-sub">besøg i alt</div></div>
+        <div class="ytd-row"><span class="ytd-row-label">Unikke besøg</span><span class="ytd-row-val">${fmt(hjUnikke)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Gns. session tid</span><span class="ytd-row-val">${fmtSek(avgSession)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">LP Gavekort</span><span class="ytd-row-val">${fmt(hjLPGavekort)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">LP Gården</span><span class="ytd-row-val">${fmt(hjLPGaarden)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">LP Roskilde</span><span class="ytd-row-val">${fmt(hjLPRoskilde)}</span></div>
+      </div>
+
+      <div class="ytd-card" style="border-top:4px solid #C30151">
+        <div class="ytd-card-title"><span>✅</span> Tilmeldinger</div>
+        <div class="ytd-hero"><div class="ytd-big">${tilmTotal}</div><div class="ytd-sub">tilmeldinger i alt</div></div>
+        <div class="ytd-row"><span class="ytd-row-label">Gavekort</span><span class="ytd-row-val">${sum(m=>m.tilmeldinger.gavekort)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Gården</span><span class="ytd-row-val">${sum(m=>m.tilmeldinger.gaarden)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Roskilde</span><span class="ytd-row-val">${sum(m=>m.tilmeldinger.roskilde)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Sommerlejr</span><span class="ytd-row-val">${sum(m=>m.tilmeldinger.sommerlejr)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Løbeløbet</span><span class="ytd-row-val">${sum(m=>m.tilmeldinger.lobeloebet)}</span></div>
+      </div>
+
+      <div class="ytd-card" style="border-top:4px solid #C30151">
+        <div class="ytd-card-title"><span>📸</span> Instagram</div>
+        <div class="ytd-hero"><div class="ytd-big">${fmt(igVisninger)}</div><div class="ytd-sub">visninger i alt</div></div>
+        <div class="ytd-row"><span class="ytd-row-label">Interaktioner</span><span class="ytd-row-val">${fmt(igInter)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Antal delt</span><span class="ytd-row-val">${fmt(igDelt)}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Nye følgere</span><span class="ytd-row-val">+${fmt(igFollowers)}</span></div>
+      </div>
+
+      <div class="ytd-card" style="border-top:4px solid #1877F2">
+        <div class="ytd-card-title"><span>👍</span> Facebook</div>
+        <div class="ytd-hero"><div class="ytd-big">${fmt(fbVisninger)}</div><div class="ytd-sub">visninger i alt</div></div>
+        <div class="ytd-row"><span class="ytd-row-label">Nye følgere</span><span class="ytd-row-val">+${fmt(fbFollowers)}</span></div>
+      </div>
+
+    </div>
+  `;
+
+  document.getElementById('tbl-section').style.display = 'none';
+  document.getElementById('tip').innerHTML =
+    `💡 Klik på en måned i fanerne ovenfor for at se og redigere de månedlige tal.`;
+}
 
 async function deleteMonth() {
   if (state.months.length <= 1) return;
