@@ -307,10 +307,11 @@ let sel = 0;
 let editMode = false;
 let viewMode = 'ytd';
 let gh = JSON.parse(localStorage.getItem('sdu-gh') || '{}');
+let cachedSHA = null;
 
 // ── GITHUB API ────────────────────────────────────────────
 function ghHeaders() {
-  return { 'Authorization': `Bearer ${gh.token}`, 'Accept': 'application/vnd.github+json', 'Cache-Control': 'no-cache' };
+  return { 'Authorization': `token ${gh.token}`, 'Accept': 'application/vnd.github+json' };
 }
 function ghApiUrl() {
   return `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/data.json`;
@@ -323,6 +324,7 @@ async function ghLoad() {
   if (res.status === 404) throw new Error('data.json ikke fundet — er filen uploadet til GitHub?');
   if (!res.ok) throw new Error(`GitHub: HTTP ${res.status}`);
   const j = await res.json();
+  cachedSHA = j.sha;
   return {
     data: JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g, ''))))),
     sha: j.sha
@@ -330,20 +332,39 @@ async function ghLoad() {
 }
 async function ghSave(newState) {
   if (!gh.token || !gh.owner || !gh.repo) throw new Error('GitHub ikke sat op — klik ⚙ Opsætning');
-  const { sha } = await ghLoad();
+  // Brug cachedSHA fra seneste load — undgår ekstra netværkskald
+  let sha = cachedSHA;
+  if (!sha) {
+    const fresh = await ghLoad();
+    sha = fresh.sha;
+  }
   const body = JSON.stringify(newState, null, 2);
   const res = await fetch(ghApiUrl(), {
     method: 'PUT',
-    headers: { ...ghHeaders(), 'Content-Type': 'application/json' },
+    headers: {
+      'Authorization': `token ${gh.token}`,
+      'Accept': 'application/vnd.github+json',
+      'Content-Type': 'application/json'
+    },
     body: JSON.stringify({
-      message: `KPI opdatering`,
+      message: 'KPI opdatering',
       content: btoa(unescape(encodeURIComponent(body))),
       sha
     })
   });
-  if (res.status === 401) throw new Error('Token ugyldigt eller udløbet');
-  if (res.status === 409) throw new Error('Konflikt — prøv igen');
-  if (!res.ok) { const e = await res.json().catch(()=>{}); throw new Error(e?.message || `HTTP ${res.status}`); }
+  if (res.status === 401) throw new Error('Token ugyldigt eller udløbet — klik ⚙ Opsætning');
+  if (res.status === 409) {
+    // SHA var forældet — hent ny og prøv igen
+    cachedSHA = null;
+    throw new Error('En anden har gemt data samtidig — prøv igen om et øjeblik');
+  }
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({}));
+    throw new Error(e?.message || `GitHub: HTTP ${res.status}`);
+  }
+  // Opdater SHA cache med det nye commit
+  const result = await res.json().catch(()=>({}));
+  if (result?.content?.sha) cachedSHA = result.content.sha;
 }
 
 // ── HELPERS ───────────────────────────────────────────────
