@@ -415,8 +415,8 @@ function subItems(items) {
 async function init() {
   showLoading('Henter data...');
   try {
-    const base = window.location.pathname.replace(/\/[^/]*$/, '');
-    const url = `${base}/data.json?v=${Date.now()}`;
+    const owner = (gh.owner || "grimur-sdu");
+    const url = `https://raw.githubusercontent.com/${owner}/${gh.repo || "kpi-dashboard"}/main/data.json?v=${Date.now()}`;
     console.log('Fetching:', url);
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status} — er data.json uploadet til GitHub?`);
