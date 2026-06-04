@@ -415,441 +415,26 @@ function subItems(items) {
 async function init() {
   showLoading('Henter data...');
   try {
-    const owner = (gh.owner || "grimur-sdu");
-    const url = `https://raw.githubusercontent.com/${owner}/${gh.repo || "kpi-dashboard"}/main/data.json?v=${Date.now()}`;
-    console.log('Fetching:', url);
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status} — er data.json uploadet til GitHub?`);
-    state = await res.json();
+    if (!gh.token || !gh.owner || !gh.repo) { showNoConfig(); return; }
+    const apiRes = await fetch(
+      `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/data.json`,
+      { headers: { 'Authorization': `Bearer ${gh.token}`, 'Accept': 'application/vnd.github+json' } }
+    );
+    if (apiRes.status === 401) throw new Error('Token ugyldigt eller udløbet — klik ⚙ Opsætning og opret nyt token');
+    if (apiRes.status === 404) throw new Error('data.json ikke fundet — er filen uploadet?');
+    if (!apiRes.ok) throw new Error(`GitHub svarede: HTTP ${apiRes.status}`);
+    const fileJson = await apiRes.json();
+    const decoded = decodeURIComponent(escape(atob(fileJson.content.replace(/\n/g, ''))));
+    state = JSON.parse(decoded);
     sel = state.months.length - 1;
     document.getElementById('btn-add').disabled = false;
     updateGhStatus();
     renderYTD();
   } catch(e) {
-    console.error(e);
-    showError(`Kunne ikke hente data.json<br><br><code>${e.message}</code><br><br>Tjek at <strong>data.json</strong> ligger i dit GitHub repository.`);
+    console.error('init fejl:', e.message);
+    showError(`<strong>${e.message}</strong>`);
   }
 }
-
-// ── SAVE: download updated data.json ─────────────────────
-function downloadData() {
-  const json = JSON.stringify(state, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'data.json';
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
-// ── RENDER ────────────────────────────────────────────────
-function render() {
-  const months = state.months;
-  if (!months || months.length === 0) {
-    document.getElementById('dash').innerHTML = `<div class="tip">Ingen data endnu.</div>`;
-    return;
-  }
-
-  const c = months[sel];
-  const p = sel > 0 ? months[sel-1] : null;
-
-  document.getElementById('month-tabs').innerHTML =
-    `<button class="month-tab ytd-tab ${viewMode==='ytd'?'active':''}" onclick="showYTD()">📊 Årets overblik</button>` +
-    months.map((m,i) =>
-      `<button class="month-tab ${viewMode==='month'&&i===sel?'active':''}" onclick="setSel(${i})">${m.label}</button>`
-    ).join('');
-
-  document.getElementById('period-title').textContent = c.label;
-  document.getElementById('period-sub').textContent = p ? `Sammenlignes med ${p.label}` : 'Første periode';
-  document.getElementById('btn-delete').style.display = months.length > 1 ? '' : 'none';
-  document.getElementById('btn-edit').style.display = '';
-
-  const sl = (fn) => months.slice(-6).map(fn);
-
-  const subItems3 = (items) => `<div class="sub-grid cols3">${items.map(([l,v,pv])=>
-    `<div class="sub-item"><div class="sub-item-label">${l}</div><div class="sub-item-val">${v}${subTrend(v,pv)}</div></div>`
-  ).join('')}</div>`;
-
-  document.getElementById('dash').innerHTML = `
-
-    <div class="section-row"><div class="section-title">📰 PR-indsats</div><div class="section-line"></div></div>
-    <div class="grid" style="grid-template-columns:2fr 3fr;align-items:start">
-      ${card('#008AAF','PR i alt', totalPR(c), 'artikler', trend(totalPR(c), p?totalPR(p):null),
-        spark(sl(m=>totalPR(m)),'#008AAF'),
-        subItems([
-          ['Promovering',       c.pr.promovering,      p?.pr.promovering],
-          ['Fortællinger',      c.pr.fortaellinger,    p?.pr.fortaellinger],
-          ['Ekstern — PM',      c.pr.ekstern_pm,       p?.pr.ekstern_pm],
-          ['Ekstern — dækning', c.pr.ekstern_daekning, p?.pr.ekstern_daekning],
-        ])
-      )}
-      <div></div>
-    </div>
-
-    <div class="section-row"><div class="section-title">🌐 Hjemmeside</div><div class="section-line"></div></div>
-    <div class="grid g3">
-      ${card('#007696','Besøg i alt',   fmt(c.hjemmeside.besøg),          'besøg', trend(c.hjemmeside.besøg,         p?.hjemmeside.besøg),         spark(sl(m=>m.hjemmeside.besøg),'#007696'))}
-      ${card('#005B73','Unikke besøg',  fmt(c.hjemmeside.unikke||0),       'besøg', trend(c.hjemmeside.unikke||0,     p?.hjemmeside.unikke||0),     spark(sl(m=>m.hjemmeside.unikke||0),'#005B73'))}
-      ${card('#008AAF','Session tid',   fmtSek(c.hjemmeside.session_tid),  'min',   trend(c.hjemmeside.session_tid,   p?.hjemmeside.session_tid),   spark(sl(m=>m.hjemmeside.session_tid),'#008AAF'))}
-    </div>
-    <div class="grid g3" style="margin-top:14px">
-      ${card('#007696','LP: Gavekort',  fmt(c.hjemmeside.lp_gavekort||0),  'besøg', trend(c.hjemmeside.lp_gavekort||0,  p?.hjemmeside.lp_gavekort||0),  spark(sl(m=>m.hjemmeside.lp_gavekort||0),'#007696'))}
-      ${card('#005B73','LP: Gården',    fmt(c.hjemmeside.lp_gaarden||0),   'besøg', trend(c.hjemmeside.lp_gaarden||0,   p?.hjemmeside.lp_gaarden||0),   spark(sl(m=>m.hjemmeside.lp_gaarden||0),'#005B73'))}
-      ${card('#008AAF','LP: Roskilde',  fmt(c.hjemmeside.lp_roskilde||0),  'besøg', trend(c.hjemmeside.lp_roskilde||0,  p?.hjemmeside.lp_roskilde||0),  spark(sl(m=>m.hjemmeside.lp_roskilde||0),'#008AAF'))}
-    </div>
-
-    <div class="section-row"><div class="section-title">✅ Tilmeldinger</div><div class="section-line"></div></div>
-    <div class="grid" style="grid-template-columns:2fr 3fr;align-items:start">
-      ${card('#C30151','Tilmeldinger i alt', totalTilm(c), 'i alt', trend(totalTilm(c), p?totalTilm(p):null), spark(sl(m=>totalTilm(m)),'#C30151'))}
-      <div class="card" style="border-top:4px solid #C30151">
-        <div class="card-label">Fordeling</div>
-        ${subItems3([
-          ['Gavekort',   c.tilmeldinger.gavekort,   p?.tilmeldinger.gavekort],
-          ['Gården',     c.tilmeldinger.gaarden,    p?.tilmeldinger.gaarden],
-          ['Roskilde',   c.tilmeldinger.roskilde,   p?.tilmeldinger.roskilde],
-          ['Sommerlejr', c.tilmeldinger.sommerlejr, p?.tilmeldinger.sommerlejr],
-          ['Løbeløbet',  c.tilmeldinger.lobeloebet, p?.tilmeldinger.lobeloebet],
-        ])}
-      </div>
-    </div>
-
-    <div class="section-row"><div class="section-title">📸 Instagram</div><div class="section-line"></div></div>
-    <div class="grid g4">
-      ${card('#C30151','Visninger',     fmt(c.ig.visninger),     'visn.',  trend(c.ig.visninger,     p?.ig.visninger),     spark(sl(m=>m.ig.visninger),'#C30151'))}
-      ${card('#008AAF','Interaktioner', fmt(c.ig.interaktioner), 'inter.', trend(c.ig.interaktioner, p?.ig.interaktioner), spark(sl(m=>m.ig.interaktioner),'#008AAF'))}
-      ${card('#007696','Antal delt',    fmt(c.ig.delt),          'delt',   trend(c.ig.delt,          p?.ig.delt),          spark(sl(m=>m.ig.delt),'#007696'))}
-      ${card('#C30151','Nye følgere',   fmt(c.følgere.ig),       'flg.',   trend(c.følgere.ig,       p?.følgere.ig),       spark(sl(m=>m.følgere.ig),'#C30151'))}
-    </div>
-
-    <div class="section-row"><div class="section-title">👍 Facebook</div><div class="section-line"></div></div>
-    <div class="grid g2" style="max-width:440px">
-      ${card('#1877F2','Visninger',   fmt(c.fb.visninger),  'visn.', trend(c.fb.visninger,  p?.fb.visninger),  spark(sl(m=>m.fb.visninger),'#1877F2'))}
-      ${card('#1877F2','Nye følgere', fmt(c.følgere.fb),    'flg.',  trend(c.følgere.fb,    p?.følgere.fb),    spark(sl(m=>m.følgere.fb),'#1877F2'))}
-    </div>
-  `;
-
-  // Table
-  if (months.length > 1) {
-    document.getElementById('tbl-section').style.display = '';
-    document.getElementById('tbl-body').innerHTML = months.map((m,i) =>
-      `<tr class="${i===sel?'sel':''}" onclick="setSel(${i})">
-        <td><strong>${i===sel?'▶ ':''}${m.label}</strong></td>
-        <td>${totalPR(m)}</td>
-        <td>${fmt(m.hjemmeside.besøg)}</td>
-        <td>${totalTilm(m)}</td>
-        <td>${fmt(m.ig.visninger)}</td>
-        <td>${fmt(m.ig.interaktioner)}</td>
-        <td>${fmt(m.fb.visninger)}</td>
-        <td>+${m.følgere.ig}</td>
-        <td>+${m.følgere.fb}</td>
-      </tr>`
-    ).join('');
-  } else {
-    document.getElementById('tbl-section').style.display = 'none';
-  }
-
-  document.getElementById('tip').innerHTML = `💡 Klik på en måned i fanerne ovenfor for at se og redigere de månedlige tal.`;
-}
-
-function showYTD() {
-  viewMode = 'ytd';
-  renderYTD();
-}
-
-function setSel(i) {
-  sel = i;
-  viewMode = 'month';
-  render();
-}
-
-function renderYTD() {
-  const months = state.months;
-  if (!months || months.length === 0) return;
-
-  // Get current year's months
-  const currentYear = new Date().getFullYear().toString();
-  const yearMonths = months.filter(m => m.label.includes(currentYear));
-  const n = yearMonths.length;
-  const filled = yearMonths.filter(m => totalPR(m) > 0 || totalTilm(m) > 0 || m.ig.visninger > 0);
-  const nFilled = filled.length;
-
-  // Aggregates
-  const sum = (fn) => yearMonths.reduce((acc, m) => acc + fn(m), 0);
-  const avg = (fn) => n > 0 ? Math.round(sum(fn) / n) : 0;
-  const avgFilled = (fn) => nFilled > 0 ? Math.round(filled.reduce((acc,m)=>acc+fn(m),0) / nFilled) : 0;
-
-  const prTotal       = sum(m => totalPR(m));
-  const tilmTotal     = sum(m => totalTilm(m));
-  const hjBesøg       = sum(m => m.hjemmeside.besøg);
-  const hjUnikke      = sum(m => m.hjemmeside.unikke||0);
-  const hjLPGavekort  = sum(m => m.hjemmeside.lp_gavekort||0);
-  const hjLPGaarden   = sum(m => m.hjemmeside.lp_gaarden||0);
-  const hjLPRoskilde  = sum(m => m.hjemmeside.lp_roskilde||0);
-  const avgSession    = avgFilled(m => m.hjemmeside.session_tid);
-  const igVisninger   = sum(m => m.ig.visninger);
-  const igInter       = sum(m => m.ig.interaktioner);
-  const igDelt        = sum(m => m.ig.delt);
-  const igFollowers   = sum(m => m.følgere.ig);
-  const fbVisninger   = sum(m => m.fb.visninger);
-  const fbFollowers   = sum(m => m.følgere.fb);
-
-  // Update tabs
-  document.getElementById('month-tabs').innerHTML =
-    `<button class="month-tab ytd-tab active" onclick="showYTD()">📊 Årets overblik</button>` +
-    months.map((m,i) =>
-      `<button class="month-tab" onclick="setSel(${i})">${m.label}</button>`
-    ).join('');
-
-  document.getElementById('period-title').textContent = `${currentYear} — År til dato`;
-  document.getElementById('period-sub').textContent = nFilled > 0
-    ? `Baseret på ${nFilled} af 12 måneder · ${12-nFilled} måneder tilbage`
-    : 'Ingen data endnu for dette år';
-  document.getElementById('btn-delete').style.display = 'none';
-  document.getElementById('btn-edit').style.display = 'none';
-
-  // Progress bar (% of year filled)
-  const pct = Math.round((nFilled / 12) * 100);
-
-  document.getElementById('dash').innerHTML = `
-    <div style="margin-bottom:24px">
-      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--t);margin-bottom:6px">
-        <span>Årets fremgang</span>
-        <span><strong style="color:var(--nat)">${nFilled}</strong> / 12 måneder udfyldt</span>
-      </div>
-      <div class="progress-bar-wrap">
-        <div class="progress-bar" style="width:${pct}%;background:linear-gradient(90deg,var(--dybet),var(--vesterhavet))"></div>
-      </div>
-    </div>
-
-    <div class="ytd-summary">
-
-      <div class="ytd-card" style="border-top:4px solid #008AAF">
-        <div class="ytd-card-title"><span>📰</span> PR-indsats</div>
-        <div class="ytd-hero"><div class="ytd-big">${prTotal}</div><div class="ytd-sub">artikler i alt</div></div>
-        <div class="ytd-row"><span class="ytd-row-label">Promovering</span><span class="ytd-row-val">${sum(m=>m.pr.promovering)}</span></div>
-        <div class="ytd-row"><span class="ytd-row-label">Fortællinger</span><span class="ytd-row-val">${sum(m=>m.pr.fortaellinger)}</span></div>
-        <div class="ytd-row"><span class="ytd-row-label">Ekstern — PM</span><span class="ytd-row-val">${sum(m=>m.pr.ekstern_pm)}</span></div>
-        <div class="ytd-row"><span class="ytd-row-label">Ekstern — dækning</span><span class="ytd-row-val">${sum(m=>m.pr.ekstern_daekning)}</span></div>
-      </div>
-
-      <div class="ytd-card" style="border-top:4px solid #007696">
-        <div class="ytd-card-title"><span>🌐</span> Hjemmeside</div>
-        <div class="ytd-hero"><div class="ytd-big">${fmt(hjBesøg)}</div><div class="ytd-sub">besøg i alt</div></div>
-        <div class="ytd-row"><span class="ytd-row-label">Unikke besøg</span><span class="ytd-row-val">${fmt(hjUnikke)}</span></div>
-        <div class="ytd-row"><span class="ytd-row-label">Gns. session tid</span><span class="ytd-row-val">${fmtSek(avgSession)}</span></div>
-        <div class="ytd-row"><span class="ytd-row-label">LP Gavekort</span><span class="ytd-row-val">${fmt(hjLPGavekort)}</span></div>
-        <div class="ytd-row"><span class="ytd-row-label">LP Gården</span><span class="ytd-row-val">${fmt(hjLPGaarden)}</span></div>
-        <div class="ytd-row"><span class="ytd-row-label">LP Roskilde</span><span class="ytd-row-val">${fmt(hjLPRoskilde)}</span></div>
-      </div>
-
-      <div class="ytd-card" style="border-top:4px solid #C30151">
-        <div class="ytd-card-title"><span>✅</span> Tilmeldinger</div>
-        <div class="ytd-hero"><div class="ytd-big">${tilmTotal}</div><div class="ytd-sub">tilmeldinger i alt</div></div>
-        <div class="ytd-row"><span class="ytd-row-label">Gavekort</span><span class="ytd-row-val">${sum(m=>m.tilmeldinger.gavekort)}</span></div>
-        <div class="ytd-row"><span class="ytd-row-label">Gården</span><span class="ytd-row-val">${sum(m=>m.tilmeldinger.gaarden)}</span></div>
-        <div class="ytd-row"><span class="ytd-row-label">Roskilde</span><span class="ytd-row-val">${sum(m=>m.tilmeldinger.roskilde)}</span></div>
-        <div class="ytd-row"><span class="ytd-row-label">Sommerlejr</span><span class="ytd-row-val">${sum(m=>m.tilmeldinger.sommerlejr)}</span></div>
-        <div class="ytd-row"><span class="ytd-row-label">Løbeløbet</span><span class="ytd-row-val">${sum(m=>m.tilmeldinger.lobeloebet)}</span></div>
-      </div>
-
-      <div class="ytd-card" style="border-top:4px solid #C30151">
-        <div class="ytd-card-title"><span>📸</span> Instagram</div>
-        <div class="ytd-hero"><div class="ytd-big">${fmt(igVisninger)}</div><div class="ytd-sub">visninger i alt</div></div>
-        <div class="ytd-row"><span class="ytd-row-label">Interaktioner</span><span class="ytd-row-val">${fmt(igInter)}</span></div>
-        <div class="ytd-row"><span class="ytd-row-label">Antal delt</span><span class="ytd-row-val">${fmt(igDelt)}</span></div>
-        <div class="ytd-row"><span class="ytd-row-label">Nye følgere</span><span class="ytd-row-val">+${fmt(igFollowers)}</span></div>
-      </div>
-
-      <div class="ytd-card" style="border-top:4px solid #1877F2">
-        <div class="ytd-card-title"><span>👍</span> Facebook</div>
-        <div class="ytd-hero"><div class="ytd-big">${fmt(fbVisninger)}</div><div class="ytd-sub">visninger i alt</div></div>
-        <div class="ytd-row"><span class="ytd-row-label">Nye følgere</span><span class="ytd-row-val">+${fmt(fbFollowers)}</span></div>
-      </div>
-
-    </div>
-  `;
-
-  document.getElementById('tbl-section').style.display = 'none';
-  document.getElementById('tip').innerHTML =
-    `💡 Klik på en måned i fanerne ovenfor for at se og redigere de månedlige tal.`;
-
-  // Render charts
-  renderYTDCharts(yearMonths);
-}
-
-function renderYTDCharts(yearMonths) {
-  const labels = yearMonths.map(m => m.label.split(' ')[0]);
-  const W = 400, H = 180;
-  const pad = { t: 20, r: 12, b: 28, l: 40 };
-  const cW = W - pad.l - pad.r;
-  const cH = H - pad.t - pad.b;
-
-  function scaledY(val, max) {
-    return pad.t + cH * (1 - val / (max || 1));
-  }
-
-  function xPos(i, n) {
-    return pad.l + (n <= 1 ? cW/2 : (i / (n - 1)) * cW);
-  }
-
-  function gridAndLabels(max, n) {
-    let s = '';
-    // Grid lines + y labels
-    [0, 0.25, 0.5, 0.75, 1].forEach(t => {
-      const y = pad.t + cH * (1 - t);
-      const val = Math.round(max * t);
-      const txt = val >= 1000 ? (val/1000).toFixed(1)+'k' : val;
-      s += `<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="#D8E8EE" stroke-width="1"/>`;
-      s += `<text x="${pad.l-5}" y="${y+4}" text-anchor="end" font-size="9" fill="#7a9eab">${txt}</text>`;
-    });
-    // X labels
-    for (let i = 0; i < n; i++) {
-      const x = pad.l + (i / Math.max(n-1,1)) * cW;
-      s += `<text x="${x}" y="${H-6}" text-anchor="middle" font-size="9" fill="#7a9eab">${labels[i]}</text>`;
-    }
-    return s;
-  }
-
-  function svgWrap(inner) {
-    return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;font-family:'Open Sans',sans-serif">${inner}</svg>`;
-  }
-
-  function barChart(id, datasets, stacked=false) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const n = labels.length;
-    const bw = Math.min(cW / n * 0.6, 30);
-    let max = 0;
-    if (stacked) {
-      for (let i=0; i<n; i++) {
-        const sum = datasets.reduce((a,d)=>a+(d.data[i]||0),0);
-        if (sum>max) max=sum;
-      }
-    } else {
-      datasets.forEach(d => d.data.forEach(v => { if(v>max) max=v; }));
-    }
-
-    let s = gridAndLabels(max, n);
-
-    for (let i=0; i<n; i++) {
-      const cx = pad.l + (i/(Math.max(n-1,1))) * cW;
-      const x = stacked ? cx - bw/2 : cx - (datasets.length * bw/2) + bw/2;
-      let yBase = pad.t + cH;
-      datasets.forEach((ds, di) => {
-        const val = ds.data[i] || 0;
-        const bh = (val / (max||1)) * cH;
-        const bx = stacked ? cx - bw/2 : pad.l + (i/(Math.max(n-1,1)))*cW - (datasets.length*bw/2) + di*bw;
-        const by = stacked ? yBase - bh : pad.t + cH - bh;
-        if (bh > 0) {
-          s += `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw}" height="${bh.toFixed(1)}" fill="${ds.color}" rx="2"/>`;
-        }
-        if (stacked) yBase -= bh;
-      });
-    }
-
-    el.innerHTML = svgWrap(s);
-  }
-
-  function lineChart(id, datasets) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const n = labels.length;
-    let max = 0;
-    datasets.forEach(d => d.data.forEach(v => { if(v>max) max=v; }));
-
-    let s = gridAndLabels(max, n);
-
-    // Legend
-    let lx = pad.l;
-    datasets.forEach(ds => {
-      s += `<rect x="${lx}" y="4" width="10" height="6" fill="${ds.color}" rx="2"/>`;
-      s += `<text x="${lx+13}" y="11" font-size="9" fill="#7a9eab">${ds.label}</text>`;
-      lx += ds.label.length * 5.5 + 20;
-    });
-
-    datasets.forEach(ds => {
-      const pts = ds.data.map((v, i) => [xPos(i, n), scaledY(v, max)]);
-      if (ds.fill && pts.length > 0) {
-        const fillPts = [[pts[0][0], pad.t+cH], ...pts, [pts[pts.length-1][0], pad.t+cH]];
-        s += `<polygon points="${fillPts.map(p=>p.join(',')).join(' ')}" fill="${ds.fill}" opacity="0.6"/>`;
-      }
-      if (pts.length > 1) {
-        const dash = ds.dashed ? 'stroke-dasharray="5,3"' : '';
-        s += `<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${ds.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" ${dash}/>`;
-      }
-      pts.forEach(([x,y]) => {
-        s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" fill="${ds.color}" stroke="white" stroke-width="1.5"/>`;
-      });
-    });
-
-    el.innerHTML = svgWrap(s);
-  }
-
-  // Draw charts
-  barChart('chart-pr', [{ data: yearMonths.map(m=>totalPR(m)), color: '#008AAF' }]);
-
-  lineChart('chart-hj', [
-    { label: 'Besøg i alt',  data: yearMonths.map(m=>m.hjemmeside.besøg),     color: '#008AAF', fill: 'rgba(0,138,175,0.15)' },
-    { label: 'Unikke besøg', data: yearMonths.map(m=>m.hjemmeside.unikke||0), color: '#007696', dashed: true },
-  ]);
-
-  barChart('chart-tilm', [
-    { data: yearMonths.map(m=>m.tilmeldinger.gavekort),   color: '#008AAF' },
-    { data: yearMonths.map(m=>m.tilmeldinger.gaarden),    color: '#007696' },
-    { data: yearMonths.map(m=>m.tilmeldinger.roskilde),   color: '#005B73' },
-    { data: yearMonths.map(m=>m.tilmeldinger.sommerlejr), color: '#C30151' },
-    { data: yearMonths.map(m=>m.tilmeldinger.lobeloebet), color: '#6B3FA0' },
-  ], true);
-
-  lineChart('chart-ig', [
-    { label: 'Visninger',     data: yearMonths.map(m=>m.ig.visninger),     color: '#C30151', fill: 'rgba(195,1,81,0.1)' },
-    { label: 'Interaktioner', data: yearMonths.map(m=>m.ig.interaktioner), color: '#008AAF', dashed: true },
-  ]);
-
-  lineChart('chart-followers', [
-    { label: 'Instagram', data: yearMonths.map(m=>m.følgere.ig), color: '#C30151', fill: 'rgba(195,1,81,0.1)' },
-    { label: 'Facebook',  data: yearMonths.map(m=>m.følgere.fb), color: '#1877F2', dashed: true },
-  ]);
-}
-
-
-function getFormData() {
-  return {
-    pr: { promovering: fv('f-pr-p'), fortaellinger: fv('f-pr-f'), ekstern_pm: fv('f-pr-pm'), ekstern_daekning: fv('f-pr-d') },
-    hjemmeside: { besøg: fv('f-hj-b'), unikke: fv('f-hj-u'), session_tid: (fv('f-hj-min') * 60) + fv('f-hj-sek'), lp_gavekort: fv('f-hj-lpg'), lp_gaarden: fv('f-hj-lpga'), lp_roskilde: fv('f-hj-lpr') },
-    tilmeldinger: { gavekort: fv('f-t-g'), gaarden: fv('f-t-ga'), roskilde: fv('f-t-r'), sommerlejr: fv('f-t-s'), lobeloebet: fv('f-t-l') },
-    ig: { visninger: fv('f-ig-v'), interaktioner: fv('f-ig-i'), delt: fv('f-ig-d') },
-    fb: { visninger: fv('f-fb-v') },
-    følgere: { ig: fv('f-fl-ig'), fb: fv('f-fl-fb') }
-  };
-}
-
-function fillForm(m) {
-  document.getElementById('f-label').value       = m.label;
-  document.getElementById('f-pr-p').value        = m.pr.promovering;
-  document.getElementById('f-pr-f').value        = m.pr.fortaellinger;
-  document.getElementById('f-pr-pm').value       = m.pr.ekstern_pm;
-  document.getElementById('f-pr-d').value        = m.pr.ekstern_daekning;
-  document.getElementById('f-hj-b').value        = m.hjemmeside.besøg;
-  document.getElementById('f-hj-u').value        = m.hjemmeside.unikke||0;
-  document.getElementById('f-hj-min').value      = Math.floor(m.hjemmeside.session_tid / 60);
-  document.getElementById('f-hj-sek').value      = Math.round(m.hjemmeside.session_tid % 60);
-  document.getElementById('f-hj-lpg').value      = m.hjemmeside.lp_gavekort||0;
-  document.getElementById('f-hj-lpga').value     = m.hjemmeside.lp_gaarden||0;
-  document.getElementById('f-hj-lpr').value      = m.hjemmeside.lp_roskilde||0;
-  document.getElementById('f-t-g').value         = m.tilmeldinger.gavekort;
-  document.getElementById('f-t-ga').value        = m.tilmeldinger.gaarden;
-  document.getElementById('f-t-r').value         = m.tilmeldinger.roskilde;
-  document.getElementById('f-t-s').value         = m.tilmeldinger.sommerlejr;
-  document.getElementById('f-t-l').value         = m.tilmeldinger.lobeloebet;
-  document.getElementById('f-ig-v').value        = m.ig.visninger;
-  document.getElementById('f-ig-i').value        = m.ig.interaktioner;
-  document.getElementById('f-ig-d').value        = m.ig.delt;
-  document.getElementById('f-fb-v').value        = m.fb.visninger;
-  document.getElementById('f-fl-ig').value       = m.følgere.ig;
-  document.getElementById('f-fl-fb').value       = m.følgere.fb;
-}
-
 async function openModal() {
   editMode = false;
   document.getElementById('modal').querySelector('h2').textContent = 'Tilføj ny måned';
@@ -901,9 +486,20 @@ async function saveMonth() {
 
   try {
     await ghCommit(state);
+    // Verify by reading back from API
+    const verifyRes = await fetch(`https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/data.json`, {
+      headers: { 'Authorization': `Bearer ${gh.token}`, 'Accept': 'application/vnd.github+json', 'Cache-Control': 'no-cache' }
+    });
+    if (verifyRes.ok) {
+      const vj = await verifyRes.json();
+      const vData = JSON.parse(decodeURIComponent(escape(atob(vj.content.replace(/\n/g,'')))));
+      if (vData.months.length !== state.months.length) {
+        throw new Error('Data blev ikke gemt korrekt — prøv igen');
+      }
+    }
     closeModal();
     render();
-    toast(editMode ? '✅ Ændringer gemt på GitHub!' : '✅ Ny måned gemt på GitHub!');
+    toast(editMode ? '✅ Gemt og verificeret på GitHub!' : '✅ Ny måned gemt på GitHub!');
   } catch(e) {
     // Revert on failure
     if (editMode) {
