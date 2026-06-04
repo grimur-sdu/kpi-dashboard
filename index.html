@@ -132,7 +132,7 @@
   .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
   .chart-card { background: var(--hvid); border-radius: 16px; padding: 20px 22px; box-shadow: 0 2px 12px rgba(0,91,115,0.08); }
   .chart-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--t); margin-bottom: 16px; display:flex; align-items:center; gap:6px; }
-  .chart-wrap { position: relative; height: 180px; }
+  .chart-wrap { width: 100%; overflow: visible; }
   @media (max-width: 720px) { .charts-grid { grid-template-columns: 1fr; } }
 
   @media (max-width: 720px) {
@@ -673,193 +673,141 @@ function renderYTD() {
   document.getElementById('tip').innerHTML =
     `💡 Klik på en måned i fanerne ovenfor for at se og redigere de månedlige tal.`;
 
-  // Render charts after DOM update
-  setTimeout(() => renderYTDCharts(yearMonths), 50);
+  // Render charts
+  renderYTDCharts(yearMonths);
 }
 
 function renderYTDCharts(yearMonths) {
   const labels = yearMonths.map(m => m.label.split(' ')[0]);
+  const W = 400, H = 180;
+  const pad = { t: 20, r: 12, b: 28, l: 40 };
+  const cW = W - pad.l - pad.r;
+  const cH = H - pad.t - pad.b;
 
-  // ── Pure canvas chart helpers ──────────────────────────
-
-  function drawBar(id, datasets, opts={}) {
-    const canvas = document.getElementById(id);
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const W = canvas.offsetWidth || 400;
-    const H = canvas.offsetHeight || 180;
-    canvas.width = W * window.devicePixelRatio;
-    canvas.height = H * window.devicePixelRatio;
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    ctx.clearRect(0, 0, W, H);
-
-    const pad = { top: 16, right: 16, bottom: 32, left: 44 };
-    const chartW = W - pad.left - pad.right;
-    const chartH = H - pad.top - pad.bottom;
-    const n = labels.length;
-    const stacked = opts.stacked || false;
-
-    // Compute max
-    let maxVal = 0;
-    if (stacked) {
-      for (let i = 0; i < n; i++) {
-        const sum = datasets.reduce((a, d) => a + (d.data[i]||0), 0);
-        if (sum > maxVal) maxVal = sum;
-      }
-    } else {
-      datasets.forEach(d => d.data.forEach(v => { if(v > maxVal) maxVal = v; }));
-    }
-    if (maxVal === 0) maxVal = 1;
-
-    // Grid lines
-    ctx.strokeStyle = 'rgba(216,232,238,0.8)';
-    ctx.lineWidth = 1;
-    [0, 0.25, 0.5, 0.75, 1].forEach(t => {
-      const y = pad.top + chartH * (1 - t);
-      ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + chartW, y); ctx.stroke();
-      const val = Math.round(maxVal * t);
-      ctx.fillStyle = '#7a9eab'; ctx.font = '10px Open Sans'; ctx.textAlign = 'right';
-      ctx.fillText(val >= 1000 ? (val/1000).toFixed(1)+'k' : val, pad.left - 4, y + 3);
-    });
-
-    // Bars
-    const groupW = chartW / n;
-    const barW = Math.min(groupW * 0.65, 28);
-
-    for (let i = 0; i < n; i++) {
-      let yBase = pad.top + chartH;
-      datasets.forEach((ds, di) => {
-        const val = ds.data[i] || 0;
-        const barH = (val / maxVal) * chartH;
-        const x = pad.left + groupW * i + (groupW - barW) / 2;
-        const y = yBase - barH;
-        ctx.fillStyle = ds.color;
-        ctx.beginPath();
-        ctx.roundRect(x, y, barW, barH, stacked ? 0 : 3);
-        ctx.fill();
-        if (stacked) yBase -= barH;
-      });
-
-      // X label
-      ctx.fillStyle = '#7a9eab'; ctx.font = '10px Open Sans'; ctx.textAlign = 'center';
-      ctx.fillText(labels[i], pad.left + groupW * i + groupW / 2, H - 8);
-    }
+  function scaledY(val, max) {
+    return pad.t + cH * (1 - val / (max || 1));
   }
 
-  function drawLine(id, datasets) {
-    const canvas = document.getElementById(id);
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const W = canvas.offsetWidth || 400;
-    const H = canvas.offsetHeight || 180;
-    canvas.width = W * window.devicePixelRatio;
-    canvas.height = H * window.devicePixelRatio;
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    ctx.clearRect(0, 0, W, H);
+  function xPos(i, n) {
+    return pad.l + (n <= 1 ? cW/2 : (i / (n - 1)) * cW);
+  }
 
-    const pad = { top: 16, right: 16, bottom: 32, left: 44 };
-    const chartW = W - pad.left - pad.right;
-    const chartH = H - pad.top - pad.bottom;
-    const n = labels.length;
-
-    let maxVal = 0;
-    datasets.forEach(d => d.data.forEach(v => { if(v > maxVal) maxVal = v; }));
-    if (maxVal === 0) maxVal = 1;
-
-    // Grid
-    ctx.strokeStyle = 'rgba(216,232,238,0.8)'; ctx.lineWidth = 1;
+  function gridAndLabels(max, n) {
+    let s = '';
+    // Grid lines + y labels
     [0, 0.25, 0.5, 0.75, 1].forEach(t => {
-      const y = pad.top + chartH * (1 - t);
-      ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + chartW, y); ctx.stroke();
-      const val = Math.round(maxVal * t);
-      ctx.fillStyle = '#7a9eab'; ctx.font = '10px Open Sans'; ctx.textAlign = 'right';
-      ctx.fillText(val >= 1000 ? (val/1000).toFixed(1)+'k' : val, pad.left - 4, y + 3);
+      const y = pad.t + cH * (1 - t);
+      const val = Math.round(max * t);
+      const txt = val >= 1000 ? (val/1000).toFixed(1)+'k' : val;
+      s += `<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="#D8E8EE" stroke-width="1"/>`;
+      s += `<text x="${pad.l-5}" y="${y+4}" text-anchor="end" font-size="9" fill="#7a9eab">${txt}</text>`;
     });
-
     // X labels
     for (let i = 0; i < n; i++) {
-      const x = pad.left + (i / Math.max(n-1,1)) * chartW;
-      ctx.fillStyle = '#7a9eab'; ctx.font = '10px Open Sans'; ctx.textAlign = 'center';
-      ctx.fillText(labels[i], x, H - 8);
+      const x = pad.l + (i / Math.max(n-1,1)) * cW;
+      s += `<text x="${x}" y="${H-6}" text-anchor="middle" font-size="9" fill="#7a9eab">${labels[i]}</text>`;
+    }
+    return s;
+  }
+
+  function svgWrap(inner) {
+    return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;font-family:'Open Sans',sans-serif">${inner}</svg>`;
+  }
+
+  function barChart(id, datasets, stacked=false) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const n = labels.length;
+    const bw = Math.min(cW / n * 0.6, 30);
+    let max = 0;
+    if (stacked) {
+      for (let i=0; i<n; i++) {
+        const sum = datasets.reduce((a,d)=>a+(d.data[i]||0),0);
+        if (sum>max) max=sum;
+      }
+    } else {
+      datasets.forEach(d => d.data.forEach(v => { if(v>max) max=v; }));
     }
 
-    // Lines
+    let s = gridAndLabels(max, n);
+
+    for (let i=0; i<n; i++) {
+      const cx = pad.l + (i/(Math.max(n-1,1))) * cW;
+      const x = stacked ? cx - bw/2 : cx - (datasets.length * bw/2) + bw/2;
+      let yBase = pad.t + cH;
+      datasets.forEach((ds, di) => {
+        const val = ds.data[i] || 0;
+        const bh = (val / (max||1)) * cH;
+        const bx = stacked ? cx - bw/2 : pad.l + (i/(Math.max(n-1,1)))*cW - (datasets.length*bw/2) + di*bw;
+        const by = stacked ? yBase - bh : pad.t + cH - bh;
+        if (bh > 0) {
+          s += `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw}" height="${bh.toFixed(1)}" fill="${ds.color}" rx="2"/>`;
+        }
+        if (stacked) yBase -= bh;
+      });
+    }
+
+    el.innerHTML = svgWrap(s);
+  }
+
+  function lineChart(id, datasets) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const n = labels.length;
+    let max = 0;
+    datasets.forEach(d => d.data.forEach(v => { if(v>max) max=v; }));
+
+    let s = gridAndLabels(max, n);
+
+    // Legend
+    let lx = pad.l;
     datasets.forEach(ds => {
-      const pts = ds.data.map((v, i) => ({
-        x: pad.left + (i / Math.max(n-1,1)) * chartW,
-        y: pad.top + chartH * (1 - v / maxVal)
-      }));
+      s += `<rect x="${lx}" y="4" width="10" height="6" fill="${ds.color}" rx="2"/>`;
+      s += `<text x="${lx+13}" y="11" font-size="9" fill="#7a9eab">${ds.label}</text>`;
+      lx += ds.label.length * 5.5 + 20;
+    });
 
-      // Fill
-      if (ds.fill) {
-        ctx.beginPath();
-        ctx.moveTo(pts[0].x, pad.top + chartH);
-        pts.forEach(p => ctx.lineTo(p.x, p.y));
-        ctx.lineTo(pts[pts.length-1].x, pad.top + chartH);
-        ctx.closePath();
-        ctx.fillStyle = ds.fill;
-        ctx.fill();
+    datasets.forEach(ds => {
+      const pts = ds.data.map((v, i) => [xPos(i, n), scaledY(v, max)]);
+      if (ds.fill && pts.length > 0) {
+        const fillPts = [[pts[0][0], pad.t+cH], ...pts, [pts[pts.length-1][0], pad.t+cH]];
+        s += `<polygon points="${fillPts.map(p=>p.join(',')).join(' ')}" fill="${ds.fill}" opacity="0.6"/>`;
       }
-
-      // Line
-      ctx.beginPath();
-      ctx.strokeStyle = ds.color; ctx.lineWidth = 2.5;
-      if (ds.dashed) ctx.setLineDash([5,3]); else ctx.setLineDash([]);
-      pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Dots
-      pts.forEach(p => {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
-        ctx.fillStyle = ds.color; ctx.fill();
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+      if (pts.length > 1) {
+        const dash = ds.dashed ? 'stroke-dasharray="5,3"' : '';
+        s += `<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${ds.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" ${dash}/>`;
+      }
+      pts.forEach(([x,y]) => {
+        s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" fill="${ds.color}" stroke="white" stroke-width="1.5"/>`;
       });
     });
 
-    // Legend
-    if (datasets.length > 1) {
-      let lx = pad.left;
-      datasets.forEach(ds => {
-        ctx.fillStyle = ds.color;
-        ctx.fillRect(lx, 4, 10, 6);
-        ctx.fillStyle = '#7a9eab'; ctx.font = '10px Open Sans'; ctx.textAlign = 'left';
-        ctx.fillText(ds.label, lx + 13, 11);
-        lx += ctx.measureText(ds.label).width + 28;
-      });
-    }
+    el.innerHTML = svgWrap(s);
   }
 
-  // ── Draw all charts ────────────────────────────────────
+  // Draw charts
+  barChart('chart-pr', [{ data: yearMonths.map(m=>totalPR(m)), color: '#008AAF' }]);
 
-  // PR
-  drawBar('chart-pr', [{ data: yearMonths.map(m=>totalPR(m)), color: 'rgba(0,138,175,0.85)' }]);
-
-  // Hjemmeside
-  drawLine('chart-hj', [
-    { label: 'Besøg i alt',  data: yearMonths.map(m=>m.hjemmeside.besøg),      color: '#008AAF', fill: 'rgba(0,138,175,0.1)' },
-    { label: 'Unikke besøg', data: yearMonths.map(m=>m.hjemmeside.unikke||0),  color: '#007696', dashed: true },
+  lineChart('chart-hj', [
+    { label: 'Besøg i alt',  data: yearMonths.map(m=>m.hjemmeside.besøg),     color: '#008AAF', fill: 'rgba(0,138,175,0.15)' },
+    { label: 'Unikke besøg', data: yearMonths.map(m=>m.hjemmeside.unikke||0), color: '#007696', dashed: true },
   ]);
 
-  // Tilmeldinger stacked
-  drawBar('chart-tilm', [
-    { data: yearMonths.map(m=>m.tilmeldinger.gavekort),   color: 'rgba(0,138,175,0.85)' },
-    { data: yearMonths.map(m=>m.tilmeldinger.gaarden),    color: 'rgba(0,118,150,0.85)' },
-    { data: yearMonths.map(m=>m.tilmeldinger.roskilde),   color: 'rgba(0,91,115,0.85)'  },
-    { data: yearMonths.map(m=>m.tilmeldinger.sommerlejr), color: 'rgba(195,1,81,0.75)'  },
-    { data: yearMonths.map(m=>m.tilmeldinger.lobeloebet), color: 'rgba(107,63,160,0.75)'},
-  ], { stacked: true });
+  barChart('chart-tilm', [
+    { data: yearMonths.map(m=>m.tilmeldinger.gavekort),   color: '#008AAF' },
+    { data: yearMonths.map(m=>m.tilmeldinger.gaarden),    color: '#007696' },
+    { data: yearMonths.map(m=>m.tilmeldinger.roskilde),   color: '#005B73' },
+    { data: yearMonths.map(m=>m.tilmeldinger.sommerlejr), color: '#C30151' },
+    { data: yearMonths.map(m=>m.tilmeldinger.lobeloebet), color: '#6B3FA0' },
+  ], true);
 
-  // Instagram
-  drawLine('chart-ig', [
-    { label: 'Visninger',     data: yearMonths.map(m=>m.ig.visninger),     color: '#C30151', fill: 'rgba(195,1,81,0.08)' },
+  lineChart('chart-ig', [
+    { label: 'Visninger',     data: yearMonths.map(m=>m.ig.visninger),     color: '#C30151', fill: 'rgba(195,1,81,0.1)' },
     { label: 'Interaktioner', data: yearMonths.map(m=>m.ig.interaktioner), color: '#008AAF', dashed: true },
   ]);
 
-  // Følgere
-  drawLine('chart-followers', [
-    { label: 'Instagram', data: yearMonths.map(m=>m.følgere.ig), color: '#C30151', fill: 'rgba(195,1,81,0.08)' },
+  lineChart('chart-followers', [
+    { label: 'Instagram', data: yearMonths.map(m=>m.følgere.ig), color: '#C30151', fill: 'rgba(195,1,81,0.1)' },
     { label: 'Facebook',  data: yearMonths.map(m=>m.følgere.fb), color: '#1877F2', dashed: true },
   ]);
 }
