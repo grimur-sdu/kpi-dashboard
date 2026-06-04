@@ -2,7 +2,7 @@
   "months": [
     {
       "id": "apr-2025",
-      "label": "Apr 2025",
+      "label": "Apr 2026",
       "pr": {
         "promovering": 4,
         "fortaellinger": 3,
@@ -35,43 +35,6 @@
       "følgere": {
         "ig": 47,
         "fb": 23
-      }
-    },
-    {
-      "id": "1780557042530",
-      "label": "Januar 2026",
-      "pr": {
-        "promovering": 0,
-        "fortaellinger": 0,
-        "ekstern_pm": 0,
-        "ekstern_daekning": 0
-      },
-      "hjemmeside": {
-        "besøg": 0,
-        "unikke": 0,
-        "session_tid": 0,
-        "lp_gavekort": 0,
-        "lp_gaarden": 0,
-        "lp_roskilde": 0
-      },
-      "tilmeldinger": {
-        "gavekort": 0,
-        "gaarden": 0,
-        "roskilde": 2,
-        "sommerlejr": 0,
-        "lobeloebet": 0
-      },
-      "ig": {
-        "visninger": 0,
-        "interaktioner": 0,
-        "delt": 0
-      },
-      "fb": {
-        "visninger": 0
-      },
-      "følgere": {
-        "ig": 0,
-        "fb": 0
       }
     }
   ]
