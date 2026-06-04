@@ -52,12 +52,12 @@
         "session_tid": 0,
         "lp_gavekort": 0,
         "lp_gaarden": 0,
-        "lp_roskilde": 22
+        "lp_roskilde": 0
       },
       "tilmeldinger": {
         "gavekort": 0,
         "gaarden": 0,
-        "roskilde": 0,
+        "roskilde": 22,
         "sommerlejr": 0,
         "lobeloebet": 0
       },
