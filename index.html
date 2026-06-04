@@ -549,8 +549,7 @@ function render() {
     document.getElementById('tbl-section').style.display = 'none';
   }
 
-  document.getElementById('tip').innerHTML =
-    `💡 Rediger tallene med <strong>✏️ Rediger periode</strong>, klik derefter <strong>⬇ Download data.json</strong> og upload filen til GitHub — siden opdaterer sig for alle inden for 30 sekunder.`;
+  document.getElementById('tip').innerHTML = `💡 Klik på en måned i fanerne ovenfor for at se og redigere de månedlige tal.`;
 }
 
 function showYTD() {
@@ -680,131 +679,94 @@ function renderYTD() {
 }
 
 function renderYTDCharts(yearMonths) {
-  const labels = yearMonths.map(m => m.label.split(' ')[0]); // short month names
-  const colors = {
-    blue:   'rgba(0,138,175,0.85)',
-    teal:   'rgba(0,118,150,0.85)',
-    deep:   'rgba(0,91,115,0.85)',
-    red:    'rgba(195,1,81,0.85)',
-    fb:     'rgba(24,119,242,0.85)',
-    purple: 'rgba(107,63,160,0.85)',
-    blueFill: 'rgba(0,138,175,0.12)',
-    redFill:  'rgba(195,1,81,0.12)',
-  };
+  const labels = yearMonths.map(m => m.label.split(' ')[0]);
+  const n = '#';
 
-  const defaults = {
+  // Destroy all existing Chart instances safely
+  document.querySelectorAll('.chart-wrap canvas').forEach(canvas => {
+    const existing = Chart.getChart(canvas);
+    if (existing) existing.destroy();
+  });
+
+  const C = (id) => document.getElementById(id)?.getContext('2d');
+
+  const baseOpts = (legend=false) => ({
     responsive: true,
     maintainAspectRatio: false,
-    plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+    plugins: {
+      legend: { display: legend, labels: { font: { family: 'Open Sans', size: 10 }, boxWidth: 10, padding: 10, color: '#5a7a88' } },
+      tooltip: { mode: 'index', intersect: false }
+    },
     scales: {
       x: { grid: { display: false }, ticks: { font: { family: 'Open Sans', size: 11 }, color: '#7a9eab' } },
-      y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { family: 'Open Sans', size: 11 }, color: '#7a9eab' }, beginAtZero: true }
+      y: { grid: { color: 'rgba(216,232,238,0.8)' }, ticks: { font: { family: 'Open Sans', size: 11 }, color: '#7a9eab' }, beginAtZero: true }
     }
-  };
+  });
 
-  // Destroy existing charts
-  Chart.helpers?.each(Chart.instances, c => c.destroy());
-  Object.values(Chart.instances || {}).forEach(c => c.destroy());
+  // Chart 1: PR bar
+  const c1 = C('chart-pr');
+  if (c1) new Chart(c1, {
+    type: 'bar',
+    data: { labels, datasets: [{ data: yearMonths.map(m=>totalPR(m)), backgroundColor: 'rgba(0,138,175,0.8)', borderRadius: 5, label: 'Artikler' }] },
+    options: baseOpts()
+  });
 
-  function makeBar(id, data, color, label) {
-    const ctx = document.getElementById(id);
-    if (!ctx) return;
-    // destroy if exists
-    if (ctx._chart) ctx._chart.destroy();
-    ctx._chart = new Chart(ctx, {
-      type: 'bar',
-      data: { labels, datasets: [{ data, backgroundColor: color, borderRadius: 4, label }] },
-      options: { ...defaults, plugins: { ...defaults.plugins, tooltip: { callbacks: { label: ctx => ctx.parsed.y.toLocaleString('da') } } } }
-    });
-  }
+  // Chart 2: Hjemmeside lines
+  const c2 = C('chart-hj');
+  if (c2) new Chart(c2, {
+    type: 'line',
+    data: { labels, datasets: [
+      { label: 'Besøg i alt', data: yearMonths.map(m=>m.hjemmeside.besøg), borderColor: '#008AAF', backgroundColor: 'rgba(0,138,175,0.1)', fill: true, tension: 0.35, pointRadius: 4, pointBackgroundColor: '#008AAF' },
+      { label: 'Unikke besøg', data: yearMonths.map(m=>m.hjemmeside.unikke||0), borderColor: '#007696', backgroundColor: 'transparent', fill: false, tension: 0.35, pointRadius: 4, borderDash: [5,3], pointBackgroundColor: '#007696' },
+    ]},
+    options: baseOpts(true)
+  });
 
-  function makeLine(id, datasets) {
-    const ctx = document.getElementById(id);
-    if (!ctx) return;
-    if (ctx._chart) ctx._chart.destroy();
-    ctx._chart = new Chart(ctx, {
-      type: 'line',
-      data: { labels, datasets },
-      options: {
-        ...defaults,
-        plugins: { legend: { display: datasets.length > 1, labels: { font: { family: 'Open Sans', size: 11 }, boxWidth: 10, padding: 12 } },
-          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString('da')}` } } },
-      }
-    });
-  }
+  // Chart 3: Tilmeldinger stacked bar
+  const c3 = C('chart-tilm');
+  if (c3) new Chart(c3, {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: 'Gavekort',   data: yearMonths.map(m=>m.tilmeldinger.gavekort),   backgroundColor: 'rgba(0,138,175,0.85)', borderRadius: 2 },
+      { label: 'Gården',     data: yearMonths.map(m=>m.tilmeldinger.gaarden),    backgroundColor: 'rgba(0,118,150,0.85)', borderRadius: 2 },
+      { label: 'Roskilde',   data: yearMonths.map(m=>m.tilmeldinger.roskilde),   backgroundColor: 'rgba(0,91,115,0.85)',  borderRadius: 2 },
+      { label: 'Sommerlejr', data: yearMonths.map(m=>m.tilmeldinger.sommerlejr), backgroundColor: 'rgba(195,1,81,0.75)', borderRadius: 2 },
+      { label: 'Løbeløbet',  data: yearMonths.map(m=>m.tilmeldinger.lobeloebet), backgroundColor: 'rgba(107,63,160,0.75)',borderRadius: 2 },
+    ]},
+    options: { ...baseOpts(true), scales: {
+      x: { stacked: true, grid: { display: false }, ticks: { font: { family: 'Open Sans', size: 11 }, color: '#7a9eab' } },
+      y: { stacked: true, grid: { color: 'rgba(216,232,238,0.8)' }, ticks: { font: { family: 'Open Sans', size: 11 }, color: '#7a9eab' }, beginAtZero: true }
+    }}
+  });
 
-  // Chart 1: PR artikler
-  makeBar('chart-pr', yearMonths.map(m => totalPR(m)), colors.blue, 'PR artikler');
+  // Chart 4: Instagram visninger (bar) + interaktioner (line, right axis)
+  const c4 = C('chart-ig');
+  if (c4) new Chart(c4, {
+    type: 'bar',
+    data: { labels, datasets: [
+      { type: 'bar',  label: 'Visninger',     data: yearMonths.map(m=>m.ig.visninger),     backgroundColor: 'rgba(195,1,81,0.7)', borderRadius: 4, yAxisID: 'y' },
+      { type: 'line', label: 'Interaktioner', data: yearMonths.map(m=>m.ig.interaktioner), borderColor: '#008AAF', backgroundColor: 'transparent', fill: false, tension: 0.35, pointRadius: 4, pointBackgroundColor: '#008AAF', yAxisID: 'y2' },
+    ]},
+    options: { ...baseOpts(true), scales: {
+      x: { grid: { display: false }, ticks: { font: { family: 'Open Sans', size: 11 }, color: '#7a9eab' } },
+      y:  { position: 'left',  grid: { color: 'rgba(216,232,238,0.8)' }, ticks: { font: { family: 'Open Sans', size: 11 }, color: '#7a9eab' }, beginAtZero: true },
+      y2: { position: 'right', grid: { display: false }, ticks: { font: { family: 'Open Sans', size: 11 }, color: '#7a9eab' }, beginAtZero: true }
+    }}
+  });
 
-  // Chart 2: Hjemmesidebesøg
-  makeLine('chart-hj', [
-    { label: 'Besøg i alt', data: yearMonths.map(m => m.hjemmeside.besøg), borderColor: colors.blue, backgroundColor: colors.blueFill, fill: true, tension: 0.3, pointRadius: 4 },
-    { label: 'Unikke besøg', data: yearMonths.map(m => m.hjemmeside.unikke||0), borderColor: colors.teal, backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 4, borderDash: [4,3] },
-  ]);
-
-  // Chart 3: Tilmeldinger stacked
-  const tilmCtx = document.getElementById('chart-tilm');
-  if (tilmCtx) {
-    if (tilmCtx._chart) tilmCtx._chart.destroy();
-    tilmCtx._chart = new Chart(tilmCtx, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          { label: 'Gavekort',   data: yearMonths.map(m=>m.tilmeldinger.gavekort),   backgroundColor: 'rgba(0,138,175,0.8)',  borderRadius: 2 },
-          { label: 'Gården',     data: yearMonths.map(m=>m.tilmeldinger.gaarden),    backgroundColor: 'rgba(0,118,150,0.8)',  borderRadius: 2 },
-          { label: 'Roskilde',   data: yearMonths.map(m=>m.tilmeldinger.roskilde),   backgroundColor: 'rgba(0,91,115,0.8)',   borderRadius: 2 },
-          { label: 'Sommerlejr', data: yearMonths.map(m=>m.tilmeldinger.sommerlejr), backgroundColor: 'rgba(195,1,81,0.7)',   borderRadius: 2 },
-          { label: 'Løbeløbet',  data: yearMonths.map(m=>m.tilmeldinger.lobeloebet), backgroundColor: 'rgba(107,63,160,0.7)', borderRadius: 2 },
-        ]
-      },
-      options: {
-        ...defaults,
-        plugins: { legend: { display: true, labels: { font: { family: 'Open Sans', size: 10 }, boxWidth: 10, padding: 8 } } },
-        scales: { ...defaults.scales, x: { ...defaults.scales.x, stacked: true }, y: { ...defaults.scales.y, stacked: true } }
-      }
-    });
-  }
-
-  // Chart 4: Instagram visninger + interaktioner
-  makeLine('chart-ig', [
-    { label: 'Visninger', data: yearMonths.map(m=>m.ig.visninger), borderColor: colors.red, backgroundColor: colors.redFill, fill: true, tension: 0.3, pointRadius: 4, yAxisID: 'y' },
-    { label: 'Interaktioner', data: yearMonths.map(m=>m.ig.interaktioner), borderColor: colors.blue, backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 4, borderDash: [4,3], yAxisID: 'y2' },
-  ]);
-  // Fix dual axis for ig chart
-  const igCtx = document.getElementById('chart-ig');
-  if (igCtx?._chart) {
-    igCtx._chart.options.scales.y2 = { position: 'right', grid: { display: false }, ticks: { font: { family: 'Open Sans', size: 11 }, color: '#7a9eab' }, beginAtZero: true };
-    igCtx._chart.options.plugins.legend.display = true;
-    igCtx._chart.options.plugins.legend.labels = { font: { family: 'Open Sans', size: 11 }, boxWidth: 10, padding: 12 };
-    igCtx._chart.update();
-  }
-
-  // Chart 5: Nye følgere
-  makeLine('chart-followers', [
-    { label: 'Instagram', data: yearMonths.map(m=>m.følgere.ig), borderColor: colors.red, backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 4 },
-    { label: 'Facebook',  data: yearMonths.map(m=>m.følgere.fb), borderColor: colors.fb,  backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 4, borderDash: [4,3] },
-  ]);
+  // Chart 5: Nye følgere lines
+  const c5 = C('chart-followers');
+  if (c5) new Chart(c5, {
+    type: 'line',
+    data: { labels, datasets: [
+      { label: 'Instagram', data: yearMonths.map(m=>m.følgere.ig), borderColor: '#C30151', backgroundColor: 'rgba(195,1,81,0.1)', fill: true, tension: 0.35, pointRadius: 4, pointBackgroundColor: '#C30151' },
+      { label: 'Facebook',  data: yearMonths.map(m=>m.følgere.fb), borderColor: '#1877F2', backgroundColor: 'transparent', fill: false, tension: 0.35, pointRadius: 4, borderDash: [5,3], pointBackgroundColor: '#1877F2' },
+    ]},
+    options: baseOpts(true)
+  });
 }
 
-async function deleteMonth() {
-  if (state.months.length <= 1) return;
-  if (!confirm(`Slet "${state.months[sel].label}"?`)) return;
-  const deleted = state.months.splice(sel, 1);
-  sel = Math.min(sel, state.months.length - 1);
-  render();
-  try {
-    await ghCommit(state);
-    toast('✅ Slettet og gemt på GitHub');
-  } catch(e) {
-    state.months.splice(sel, 0, ...deleted);
-    sel = state.months.indexOf(deleted[0]);
-    render();
-    toast(`❌ ${e.message}`, true);
-  }
-}
 
-// ── MODAL ─────────────────────────────────────────────────
 function getFormData() {
   return {
     pr: { promovering: fv('f-pr-p'), fortaellinger: fv('f-pr-f'), ekstern_pm: fv('f-pr-pm'), ekstern_daekning: fv('f-pr-d') },
