@@ -251,15 +251,23 @@
     </div>
     <div class="fsec">
       <div class="fsec-title">📸 Instagram</div>
-      <div class="frow3">
+      <div class="frow2">
+        <div class="fg"><label>Rækkevidde</label><input type="number" id="f-ig-r" placeholder="0"></div>
         <div class="fg"><label>Visninger</label><input type="number" id="f-ig-v" placeholder="0"></div>
         <div class="fg"><label>Interaktioner</label><input type="number" id="f-ig-i" placeholder="0"></div>
-        <div class="fg"><label>Antal delt</label><input type="number" id="f-ig-d" placeholder="0"></div>
+        <div class="fg"><label>Besøg (profil)</label><input type="number" id="f-ig-b2" placeholder="0"></div>
+        <div class="fg"><label>Klik på link</label><input type="number" id="f-ig-k" placeholder="0"></div>
       </div>
     </div>
     <div class="fsec">
       <div class="fsec-title">👍 Facebook</div>
-      <div class="fg" style="max-width:200px"><label>Visninger</label><input type="number" id="f-fb-v" placeholder="0"></div>
+      <div class="frow2">
+        <div class="fg"><label>Visninger</label><input type="number" id="f-fb-v" placeholder="0"></div>
+        <div class="fg"><label>Interaktioner</label><input type="number" id="f-fb-i" placeholder="0"></div>
+        <div class="fg"><label>Besøg (side)</label><input type="number" id="f-fb-b2" placeholder="0"></div>
+        <div class="fg"><label>Klik på link</label><input type="number" id="f-fb-k" placeholder="0"></div>
+        <div class="fg"><label>Seere</label><input type="number" id="f-fb-s" placeholder="0"></div>
+      </div>
     </div>
     <div class="fsec">
       <div class="fsec-title">👥 Nye følgere</div>
@@ -483,16 +491,22 @@ function importExcel(file) {
             lobeloebet:val(sheetTilm, 8, c), // Row 9
           },
           ig: {
-            visninger:    val(sheetSome, 4, c),  // Row 5
-            interaktioner:val(sheetSome, 5, c),  // Row 6
-            delt:         val(sheetSome, 6, c),  // Row 7
+            rækkevidde:   val(sheetSome, 4, c),  // Row 5
+            visninger:    val(sheetSome, 5, c),  // Row 6
+            interaktioner:val(sheetSome, 6, c),  // Row 7
+            besøg:        val(sheetSome, 7, c),  // Row 8
+            klik:         val(sheetSome, 8, c),  // Row 9
           },
           fb: {
-            visninger: val(sheetSome, 8, c),  // Row 9
+            visninger:    val(sheetSome, 10, c), // Row 11
+            interaktioner:val(sheetSome, 11, c), // Row 12
+            besøg:        val(sheetSome, 12, c), // Row 13
+            klik:         val(sheetSome, 13, c), // Row 14
+            seere:        val(sheetSome, 14, c), // Row 15
           },
           følgere: {
-            ig: val(sheetSome, 10, c), // Row 11
-            fb: val(sheetSome, 11, c), // Row 12
+            ig: val(sheetSome, 16, c), // Row 17
+            fb: val(sheetSome, 17, c), // Row 18
           }
         };
       });
@@ -595,13 +609,18 @@ function showYTD() {
       <div class="ytd-card" style="border-top:4px solid #C30151">
         <div class="ytd-card-title"><span>📸</span> Instagram</div>
         <div class="ytd-hero"><div class="ytd-big">${fmt(sum(m=>m.ig.visninger))}</div><div class="ytd-sub">visninger i alt</div></div>
+        <div class="ytd-row"><span class="ytd-row-label">Rækkevidde</span><span class="ytd-row-val">${fmt(sum(m=>m.ig.rækkevidde||0))}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Visninger</span><span class="ytd-row-val">${fmt(sum(m=>m.ig.visninger))}</span></div>
         <div class="ytd-row"><span class="ytd-row-label">Interaktioner</span><span class="ytd-row-val">${fmt(sum(m=>m.ig.interaktioner))}</span></div>
-        <div class="ytd-row"><span class="ytd-row-label">Antal delt</span><span class="ytd-row-val">${fmt(sum(m=>m.ig.delt))}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Klik på link</span><span class="ytd-row-val">${fmt(sum(m=>m.ig.klik||0))}</span></div>
         <div class="ytd-row"><span class="ytd-row-label">Nye følgere</span><span class="ytd-row-val">+${fmt(sum(m=>m.følgere.ig))}</span></div>
       </div>
       <div class="ytd-card" style="border-top:4px solid #1877F2">
         <div class="ytd-card-title"><span>👍</span> Facebook</div>
         <div class="ytd-hero"><div class="ytd-big">${fmt(sum(m=>m.fb.visninger))}</div><div class="ytd-sub">visninger i alt</div></div>
+        <div class="ytd-row"><span class="ytd-row-label">Visninger</span><span class="ytd-row-val">${fmt(sum(m=>m.fb.visninger))}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Interaktioner</span><span class="ytd-row-val">${fmt(sum(m=>m.fb.interaktioner||0))}</span></div>
+        <div class="ytd-row"><span class="ytd-row-label">Seere</span><span class="ytd-row-val">${fmt(sum(m=>m.fb.seere||0))}</span></div>
         <div class="ytd-row"><span class="ytd-row-label">Nye følgere</span><span class="ytd-row-val">+${fmt(sum(m=>m.følgere.fb))}</span></div>
       </div>
     </div>
@@ -662,15 +681,25 @@ function render() {
       </div>
     </div>
     <div class="section-row"><div class="section-title">📸 Instagram</div><div class="section-line"></div></div>
-    <div class="grid g4">
-      ${card('#C30151','Visninger',fmt(c.ig.visninger),'visn.',trend(c.ig.visninger,p?.ig.visninger),spark(sl(m=>m.ig.visninger),'#C30151'))}
-      ${card('#008AAF','Interaktioner',fmt(c.ig.interaktioner),'inter.',trend(c.ig.interaktioner,p?.ig.interaktioner),spark(sl(m=>m.ig.interaktioner),'#008AAF'))}
-      ${card('#007696','Antal delt',fmt(c.ig.delt),'delt',trend(c.ig.delt,p?.ig.delt),spark(sl(m=>m.ig.delt),'#007696'))}
+    <div class="grid g3">
+      ${card('#C30151','Rækkevidde',fmt(c.ig.rækkevidde||0),'unikke',trend(c.ig.rækkevidde||0,p?.ig.rækkevidde||0),spark(sl(m=>m.ig.rækkevidde||0),'#C30151'))}
+      ${card('#008AAF','Visninger',fmt(c.ig.visninger),'visn.',trend(c.ig.visninger,p?.ig.visninger),spark(sl(m=>m.ig.visninger),'#008AAF'))}
+      ${card('#007696','Interaktioner',fmt(c.ig.interaktioner),'inter.',trend(c.ig.interaktioner,p?.ig.interaktioner),spark(sl(m=>m.ig.interaktioner),'#007696'))}
+    </div>
+    <div class="grid g3" style="margin-top:14px">
+      ${card('#005B73','Besøg (profil)',fmt(c.ig.besøg||0),'besøg',trend(c.ig.besøg||0,p?.ig.besøg||0),spark(sl(m=>m.ig.besøg||0),'#005B73'))}
+      ${card('#C30151','Klik på link',fmt(c.ig.klik||0),'klik',trend(c.ig.klik||0,p?.ig.klik||0),spark(sl(m=>m.ig.klik||0),'#C30151'))}
       ${card('#C30151','Nye følgere',fmt(c.følgere.ig),'flg.',trend(c.følgere.ig,p?.følgere.ig),spark(sl(m=>m.følgere.ig),'#C30151'))}
     </div>
     <div class="section-row"><div class="section-title">👍 Facebook</div><div class="section-line"></div></div>
-    <div class="grid g2" style="max-width:440px">
+    <div class="grid g3">
       ${card('#1877F2','Visninger',fmt(c.fb.visninger),'visn.',trend(c.fb.visninger,p?.fb.visninger),spark(sl(m=>m.fb.visninger),'#1877F2'))}
+      ${card('#1877F2','Interaktioner',fmt(c.fb.interaktioner||0),'inter.',trend(c.fb.interaktioner||0,p?.fb.interaktioner||0),spark(sl(m=>m.fb.interaktioner||0),'#1877F2'))}
+      ${card('#1877F2','Seere',fmt(c.fb.seere||0),'seere',trend(c.fb.seere||0,p?.fb.seere||0),spark(sl(m=>m.fb.seere||0),'#1877F2'))}
+    </div>
+    <div class="grid g3" style="margin-top:14px">
+      ${card('#1565C0','Besøg (side)',fmt(c.fb.besøg||0),'besøg',trend(c.fb.besøg||0,p?.fb.besøg||0),spark(sl(m=>m.fb.besøg||0),'#1565C0'))}
+      ${card('#1565C0','Klik på link',fmt(c.fb.klik||0),'klik',trend(c.fb.klik||0,p?.fb.klik||0),spark(sl(m=>m.fb.klik||0),'#1565C0'))}
       ${card('#1877F2','Nye følgere',fmt(c.følgere.fb),'flg.',trend(c.følgere.fb,p?.følgere.fb),spark(sl(m=>m.følgere.fb),'#1877F2'))}
     </div>`;
 
@@ -806,8 +835,11 @@ function fillForm(m) {
   set('f-hj-lpg',m.hjemmeside.lp_gavekort||0); set('f-hj-lpga',m.hjemmeside.lp_gaarden||0); set('f-hj-lpr',m.hjemmeside.lp_roskilde||0);
   set('f-t-g',m.tilmeldinger.gavekort); set('f-t-ga',m.tilmeldinger.gaarden); set('f-t-r',m.tilmeldinger.roskilde);
   set('f-t-s',m.tilmeldinger.sommerlejr); set('f-t-l',m.tilmeldinger.lobeloebet);
-  set('f-ig-v',m.ig.visninger); set('f-ig-i',m.ig.interaktioner); set('f-ig-d',m.ig.delt);
-  set('f-fb-v',m.fb.visninger); set('f-fl-ig',m.følgere.ig); set('f-fl-fb',m.følgere.fb);
+  set('f-ig-r',m.ig.rækkevidde||0); set('f-ig-v',m.ig.visninger); set('f-ig-i',m.ig.interaktioner);
+  set('f-ig-b2',m.ig.besøg||0); set('f-ig-k',m.ig.klik||0);
+  set('f-fb-v',m.fb.visninger); set('f-fb-i',m.fb.interaktioner||0);
+  set('f-fb-b2',m.fb.besøg||0); set('f-fb-k',m.fb.klik||0); set('f-fb-s',m.fb.seere||0);
+  set('f-fl-ig',m.følgere.ig); set('f-fl-fb',m.følgere.fb);
 }
 function openModal() {
   editMode=false;
