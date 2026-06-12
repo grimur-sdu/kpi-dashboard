@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SdUs Kommunikations-Kompas</title>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -157,9 +158,9 @@
       <div class="header-sub">Kommunikation & Synlighed</div>
     </div>
     <div class="header-actions">
-      <div class="gh-status" id="gh-status"></div>
-      <button class="btn-header" onclick="openSettings()">⚙ Opsætning</button>
-      <button class="btn-header primary" id="btn-add" onclick="openModal()" disabled>+ Tilføj måned</button>
+      <button class="btn-header" onclick="importData()">📂 Importer</button>
+      <button class="btn-header" onclick="exportData()">⬇ Eksporter</button>
+      <button class="btn-header primary" id="btn-add" onclick="openModal()">+ Tilføj måned</button>
     </div>
   </div>
   <div class="month-tabs" id="month-tabs">
@@ -274,22 +275,7 @@
   </div>
 </div>
 
-<!-- SETTINGS MODAL -->
-<div class="overlay" id="settings" onclick="closeSettingsOut(event)">
-  <div class="modal">
-    <h2>⚙ GitHub-opsætning</h2>
-    <p>Udfyldes én gang per computer. Tokenet gemmes kun i din browser.</p>
-    <div class="tbox">
-      <strong>Nyt token:</strong>
-      Gå til <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens/new</a>
-      · Navn: valgfrit · Sæt hak ved <code>repo</code> · Klik Generate · Kopiér
-    </div>
-    <div style="display:grid;gap:12px">
-      <div class="fg"><label>GitHub Token</label><input type="password" id="s-tok" class="mono" placeholder="ghp_..."></div>
-      <div class="frow2">
-        <div class="fg"><label>GitHub bruger</label><input type="text" id="s-own" placeholder="grimur-sdu"></div>
-        <div class="fg"><label>Repository</label><input type="text" id="s-rep" placeholder="kpi-dashboard"></div>
-      </div>
+
     </div>
     <div id="s-test-result" style="margin-top:12px;font-size:13px;min-height:20px"></div>
     <div class="m-actions">
@@ -301,102 +287,42 @@
 
 <script>
 
-// ── STATE & CONFIG ────────────────────────────────────────
+// ── STATE ─────────────────────────────────────────────────
+const STORAGE_KEY = 'sdu-kpi-v1';
 let state = { months: [] };
 let sel = 0;
 let editMode = false;
 let viewMode = 'ytd';
-let gh = JSON.parse(localStorage.getItem('sdu-gh') || '{}');
-let cachedSHA = null;
-
-// ── GITHUB API ────────────────────────────────────────────
-function ghHeaders() {
-  return { 'Authorization': `token ${gh.token}`, 'Accept': 'application/vnd.github+json' };
-}
-function ghApiUrl() {
-  return `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/data.json`;
-}
-async function ghLoad() {
-  // Ingen Authorization header ved læsning — undgår CORS preflight-problemer
-  // Public repo: virker uden token. SHA bruges til efterfølgende commit.
-  const url = `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/data.json`;
-  const res = await fetch(url, { headers: { 'Accept': 'application/vnd.github+json' } });
-  if (res.status === 404) throw new Error('data.json ikke fundet — er filen uploadet til GitHub?');
-  if (!res.ok) throw new Error(`GitHub: HTTP ${res.status}`);
-  const j = await res.json();
-  cachedSHA = j.sha;
-  return {
-    data: JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g, ''))))),
-    sha: j.sha
-  };
-}
-async function ghSave(newState) {
-  if (!gh.token || !gh.owner || !gh.repo) throw new Error('GitHub ikke sat op — klik ⚙ Opsætning');
-  // Brug cachedSHA fra seneste load — undgår ekstra netværkskald
-  let sha = cachedSHA;
-  if (!sha) {
-    const fresh = await ghLoad();
-    sha = fresh.sha;
-  }
-  const body = JSON.stringify(newState, null, 2);
-  const res = await fetch(ghApiUrl(), {
-    method: 'PUT',
-    headers: {
-      'Authorization': `token ${gh.token}`,
-      'Accept': 'application/vnd.github+json',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      message: 'KPI opdatering',
-      content: btoa(unescape(encodeURIComponent(body))),
-      sha
-    })
-  });
-  if (res.status === 401) throw new Error('Token ugyldigt eller udløbet — klik ⚙ Opsætning');
-  if (res.status === 409) {
-    // SHA var forældet — hent ny og prøv igen
-    cachedSHA = null;
-    throw new Error('En anden har gemt data samtidig — prøv igen om et øjeblik');
-  }
-  if (!res.ok) {
-    const e = await res.json().catch(()=>({}));
-    throw new Error(e?.message || `GitHub: HTTP ${res.status}`);
-  }
-  // Opdater SHA cache med det nye commit
-  const result = await res.json().catch(()=>({}));
-  if (result?.content?.sha) cachedSHA = result.content.sha;
-}
 
 // ── HELPERS ───────────────────────────────────────────────
 const fmt = n => Number(n).toLocaleString('da');
-const fv = id => Number(document.getElementById(id)?.value) || 0;
-const fs = id => (document.getElementById(id)?.value || '').trim();
-const totalPR = m => m.pr.promovering + m.pr.fortaellinger + m.pr.ekstern_pm + m.pr.ekstern_daekning;
+const fv  = id => Number(document.getElementById(id)?.value) || 0;
+const fs  = id => (document.getElementById(id)?.value || '').trim();
+const totalPR   = m => m.pr.promovering + m.pr.fortaellinger + m.pr.ekstern_pm + m.pr.ekstern_daekning;
 const totalTilm = m => m.tilmeldinger.gavekort + m.tilmeldinger.gaarden + m.tilmeldinger.roskilde + m.tilmeldinger.sommerlejr + m.tilmeldinger.lobeloebet;
 
 function fmtSek(sek) {
-  const m = Math.floor(sek / 60), s = Math.round(sek % 60);
+  const m = Math.floor(sek/60), s = Math.round(sek%60);
   return `${m}:${String(s).padStart(2,'0')}`;
 }
 function trend(cur, prev) {
   if (prev == null) return '';
   const diff = cur - prev;
-  if (diff === 0) return `<span class="trend flat">±0</span>`;
+  if (!diff) return `<span class="trend flat">±0</span>`;
   const pct = prev !== 0 ? Math.abs(diff/prev*100).toFixed(0) : '–';
   return `<span class="trend ${diff>0?'up':'down'}">${diff>0?'▲':'▼'} ${pct}%</span>`;
 }
 function spark(vals, color) {
-  if (!vals || !vals.length) return '';
+  if (!vals?.length) return '';
   const max = Math.max(...vals, 1);
   return `<div class="spark">${vals.map((v,i)=>{
-    const h = Math.max(4,Math.round(v/max*28)), op = 0.35+(i/(vals.length-1||1))*0.65;
+    const h=Math.max(4,Math.round(v/max*28)), op=0.35+(i/(vals.length-1||1))*0.65;
     return `<div class="spark-bar" style="height:${h}px;background:${color};opacity:${op}"></div>`;
   }).join('')}</div>`;
 }
 function subTrend(cur, prev) {
-  if (prev == null) return '';
-  const diff = cur - prev;
-  if (!diff) return '';
+  if (prev==null) return '';
+  const diff = cur-prev; if(!diff) return '';
   return `<span class="sub-trend" style="color:${diff>0?'#27ae60':'var(--kærlighed)'}">${diff>0?'▲':'▼'}${Math.abs(diff)}</span>`;
 }
 function card(color, label, value, unit, trendHtml, sparkHtml, extra='') {
@@ -423,36 +349,198 @@ function suggestNext() {
   const ni = (i+1)%12;
   return `${da[ni]} ${ni===0?Number(last[1])+1:Number(last[1])}`;
 }
-function updateGhStatus() {
-  const el = document.getElementById('gh-status');
-  if (!el) return;
-  el.innerHTML = (gh.token && gh.owner && gh.repo)
-    ? `<div class="dot"></div> GitHub tilsluttet`
-    : `<div class="dot warn"></div> <span style="cursor:pointer;text-decoration:underline" onclick="openSettings()">Opsæt GitHub</span>`;
+
+// ── STORAGE ───────────────────────────────────────────────
+function saveLocal() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+function loadLocal() {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY);
+    if (s) return JSON.parse(s);
+  } catch(e) {}
+  return null;
 }
 
 // ── INIT ──────────────────────────────────────────────────
-async function init() {
-  showLoading('Henter data...');
-  updateGhStatus();
-  if (!gh.token || !gh.owner || !gh.repo) { showNoConfig(); return; }
-  try {
-    const { data } = await ghLoad();
-    state = data;
-    sel = state.months.length - 1;
-    document.getElementById('btn-add').disabled = false;
-    showYTD();
-  } catch(e) {
-    console.error('init:', e.message);
-    showError(`<strong>${e.message}</strong>`);
+function init() {
+  const saved = loadLocal();
+  if (saved && saved.months?.length > 0) {
+    state = saved;
   }
+  sel = state.months.length - 1;
+  document.getElementById('btn-add').disabled = false;
+  const ghEl = document.getElementById('gh-status'); if(ghEl) ghEl.innerHTML = `<span style="font-size:12px;opacity:0.8">💾 Data gemt lokalt</span>`;
+  showYTD();
 }
 
-// ── YTD VIEW ──────────────────────────────────────────────
+// ── SAVE ──────────────────────────────────────────────────
+function save() {
+  saveLocal();
+  // Auto-export data.json after every save so user can upload to GitHub
+  exportData(true); // silent=true means no alert
+}
+
+function exportData(silent=false) {
+  const json = JSON.stringify(state, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'data.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  if (!silent) toast('📥 data.json downloadet');
+}
+
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.xlsx,.json,application/json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.name.endsWith('.xlsx')) {
+      importExcel(file);
+    } else {
+      importJSON(file);
+    }
+  };
+  input.click();
+}
+
+function importJSON(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const imported = JSON.parse(ev.target.result);
+      if (!imported.months || !Array.isArray(imported.months)) throw new Error('Ugyldigt JSON-format');
+      state = imported;
+      sel = state.months.length - 1;
+      saveLocal();
+      showYTD();
+      toast(`✅ ${imported.months.length} måneder importeret fra JSON`);
+    } catch(err) {
+      toast('❌ ' + err.message, true);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function importExcel(file) {
+  if (typeof XLSX === 'undefined') {
+    toast('❌ Excel-bibliotek ikke indlæst — prøv at genindlæse siden', true);
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const wb = XLSX.read(ev.target.result, { type: 'array' });
+
+      // Sheet names
+      const sheetPR   = wb.Sheets['📰 PR'];
+      const sheetHj   = wb.Sheets['🌐 Hjemmeside'];
+      const sheetTilm = wb.Sheets['✅ Tilmeldinger'];
+      const sheetSome = wb.Sheets['📱 SoMe'];
+
+      if (!sheetPR || !sheetHj || !sheetTilm || !sheetSome) {
+        throw new Error('Forkert skabelon — mangler en eller flere faner. Brug den officielle SdU KPI-skabelon.');
+      }
+
+      const MONTHS_DA = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+
+      // Helper: get cell value (0-indexed row and col)
+      function val(sheet, row, col) {
+        const addr = XLSX.utils.encode_cell({ r: row, c: col });
+        const cell = sheet[addr];
+        return cell ? (Number(cell.v) || 0) : 0;
+      }
+
+      // Build months array — col 2=Jan(index 0), col 3=Feb(index 1) ... col 13=Dec(index 11)
+      const months = MONTHS_DA.map((label, i) => {
+        const c = 2 + i; // Excel column index (0-based): C=2, D=3...
+        return {
+          id: `${label.toLowerCase()}-excel`,
+          label: `${label} ${new Date().getFullYear()}`,
+          pr: {
+            promovering:      val(sheetPR, 4, c),  // Row 5
+            fortaellinger:    val(sheetPR, 5, c),  // Row 6
+            ekstern_pm:       val(sheetPR, 6, c),  // Row 7
+            ekstern_daekning: val(sheetPR, 7, c),  // Row 8
+          },
+          hjemmeside: {
+            besøg:       val(sheetHj, 4, c),  // Row 5
+            unikke:      val(sheetHj, 5, c),  // Row 6
+            session_tid: val(sheetHj, 6, c),  // Row 7
+            lp_gavekort: val(sheetHj, 8, c),  // Row 9
+            lp_gaarden:  val(sheetHj, 9, c),  // Row 10
+            lp_roskilde: val(sheetHj, 10, c), // Row 11
+          },
+          tilmeldinger: {
+            gavekort:  val(sheetTilm, 4, c), // Row 5
+            gaarden:   val(sheetTilm, 5, c), // Row 6
+            roskilde:  val(sheetTilm, 6, c), // Row 7
+            sommerlejr:val(sheetTilm, 7, c), // Row 8
+            lobeloebet:val(sheetTilm, 8, c), // Row 9
+          },
+          ig: {
+            visninger:    val(sheetSome, 4, c),  // Row 5
+            interaktioner:val(sheetSome, 5, c),  // Row 6
+            delt:         val(sheetSome, 6, c),  // Row 7
+          },
+          fb: {
+            visninger: val(sheetSome, 8, c),  // Row 9
+          },
+          følgere: {
+            ig: val(sheetSome, 10, c), // Row 11
+            fb: val(sheetSome, 11, c), // Row 12
+          }
+        };
+      });
+
+      // Only keep months that have any data
+      const filled = months.filter(m =>
+        Object.values(m.pr).some(v=>v>0) ||
+        Object.values(m.tilmeldinger).some(v=>v>0) ||
+        m.ig.visninger > 0 || m.hjemmeside.besøg > 0
+      );
+
+      if (filled.length === 0) {
+        toast('⚠️ Ingen data fundet i Excel-filen — er de gule celler udfyldt?', true);
+        return;
+      }
+
+      state = { months: filled };
+      sel = state.months.length - 1;
+      saveLocal();
+      showYTD();
+      toast(`✅ ${filled.length} måneder importeret fra Excel`);
+    } catch(err) {
+      console.error('Excel import fejl:', err);
+      toast('❌ ' + err.message, true);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── YTD ───────────────────────────────────────────────────
 function showYTD() {
   viewMode = 'ytd';
   const months = state.months;
-  if (!months || !months.length) { document.getElementById('dash').innerHTML = '<div class="tip">Ingen data.</div>'; return; }
+  if (!months?.length) {
+    document.getElementById('dash').innerHTML = `
+      <div class="no-config">
+        <div style="font-size:36px;margin-bottom:12px">📊</div>
+        <h3>Ingen data endnu</h3>
+        <p>Klik "+ Tilføj måned" for at komme i gang, eller importer en eksisterende data.json fil.</p>
+        <button class="btn-save" onclick="importData()" style="padding:12px 28px;border-radius:10px;border:none;cursor:pointer;font-family:inherit;font-weight:800;font-size:14px;margin-top:8px">📂 Importer data.json</button>
+      </div>`;
+    document.getElementById('month-tabs').innerHTML = '';
+    document.getElementById('period-title').textContent = '';
+    document.getElementById('period-sub').textContent = '';
+    document.getElementById('btn-delete').style.display = 'none';
+    document.getElementById('btn-edit').style.display = 'none';
+    return;
+  }
 
   const yr = new Date().getFullYear().toString();
   const ym = months.filter(m => m.label.includes(yr));
@@ -526,7 +614,10 @@ function showYTD() {
     </div>`;
 
   document.getElementById('tbl-section').style.display = 'none';
-  document.getElementById('tip').textContent = '';
+  document.getElementById('tip').innerHTML = `
+    💾 Data gemmes automatisk i din browser.
+    &nbsp;·&nbsp; <a href="#" onclick="exportData();return false" style="color:var(--vesterhavet);font-weight:700">⬇ Eksporter data.json</a>
+    &nbsp;·&nbsp; <a href="#" onclick="importData();return false" style="color:var(--vesterhavet);font-weight:700">📂 Importer data.json</a>`;
   renderCharts(ym);
 }
 
@@ -595,12 +686,15 @@ function render() {
   } else {
     document.getElementById('tbl-section').style.display='none';
   }
-  document.getElementById('tip').textContent = '';
+  document.getElementById('tip').innerHTML = `
+    💾 Data gemmes automatisk i din browser.
+    &nbsp;·&nbsp; <a href="#" onclick="exportData();return false" style="color:var(--vesterhavet);font-weight:700">⬇ Eksporter data.json</a>
+    &nbsp;·&nbsp; <a href="#" onclick="importData();return false" style="color:var(--vesterhavet);font-weight:700">📂 Importer data.json</a>`;
 }
 
 function setSel(i) { sel=i; viewMode='month'; render(); }
 
-// ── CHARTS (SVG) ──────────────────────────────────────────
+// ── CHARTS ────────────────────────────────────────────────
 function renderCharts(ym) {
   const labels = ym.map(m=>m.label.split(' ')[0]);
   const W=400, H=160, pad={t:20,r:12,b:28,l:40};
@@ -619,11 +713,9 @@ function renderCharts(ym) {
     }
     return s;
   }
-
   function svgWrap(inner){
     return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">${inner}</svg>`;
   }
-
   function barChart(id,datasets,stacked=false){
     const el=document.getElementById(id); if(!el) return;
     const n=labels.length, bw=Math.min(cW/n*0.55,28);
@@ -644,19 +736,19 @@ function renderCharts(ym) {
     }
     el.innerHTML=svgWrap(s);
   }
-
   function lineChart(id,datasets){
     const el=document.getElementById(id); if(!el) return;
     const n=labels.length;
     let max=0; datasets.forEach(d=>d.data.forEach(v=>{if(v>max)max=v;}));
     let s=grid(max,n);
-    // legend
-    let lx=pad.l;
-    if(datasets.length>1) datasets.forEach(ds=>{
-      s+=`<rect x="${lx}" y="5" width="10" height="6" fill="${ds.color}" rx="1"/>`;
-      s+=`<text x="${lx+13}" y="12" font-size="9" fill="#7a9eab">${ds.label}</text>`;
-      lx+=ds.label.length*5.2+20;
-    });
+    if(datasets.length>1){
+      let lx=pad.l;
+      datasets.forEach(ds=>{
+        s+=`<rect x="${lx}" y="5" width="10" height="6" fill="${ds.color}" rx="1"/>`;
+        s+=`<text x="${lx+13}" y="12" font-size="9" fill="#7a9eab">${ds.label}</text>`;
+        lx+=ds.label.length*5.2+20;
+      });
+    }
     datasets.forEach(ds=>{
       const pts=ds.data.map((v,i)=>[pad.l+(n<=1?cW/2:(i/(n-1))*cW), pad.t+cH*(1-v/(max||1))]);
       if(ds.fill&&pts.length>0){
@@ -717,7 +809,7 @@ function fillForm(m) {
   set('f-ig-v',m.ig.visninger); set('f-ig-i',m.ig.interaktioner); set('f-ig-d',m.ig.delt);
   set('f-fb-v',m.fb.visninger); set('f-fl-ig',m.følgere.ig); set('f-fl-fb',m.følgere.fb);
 }
-async function openModal() {
+function openModal() {
   editMode=false;
   document.getElementById('modal').querySelector('h2').textContent='Tilføj ny måned';
   document.getElementById('btn-gem').textContent='Gem';
@@ -735,101 +827,54 @@ function openEditModal() {
   fillForm(m);
   document.getElementById('modal').classList.add('open');
 }
-function closeModal() { document.getElementById('modal').classList.remove('open'); editMode=false; }
-function closeModalOut(e) { if(e.target===document.getElementById('modal')) closeModal(); }
+function closeModal(){document.getElementById('modal').classList.remove('open');editMode=false;}
+function closeModalOut(e){if(e.target===document.getElementById('modal'))closeModal();}
 
-async function saveMonth() {
+function saveMonth() {
   const label=fs('f-label');
   if(!label){alert('Angiv en månedbetegnelse.');return;}
-  const btn=document.getElementById('btn-gem');
-  btn.disabled=true; btn.innerHTML='<span class="spin"></span>Gemmer...';
-  const data=getFormData();
-  // Update state
-  if(editMode) state.months[sel]={...state.months[sel],label,...data};
-  else { state.months.push({id:Date.now().toString(),label,...data}); sel=state.months.length-1; }
-  try {
-    await ghSave(state);
-    closeModal();
-    viewMode==='ytd' ? showYTD() : render();
-    toast(editMode?'✅ Gemt på GitHub!':'✅ Ny måned gemt på GitHub!');
-  } catch(e) {
-    // Revert
-    if(!editMode){state.months.pop();sel=state.months.length-1;}
-    toast(`❌ ${e.message}`,true);
-    console.error('saveMonth:',e);
-  } finally { btn.disabled=false; btn.innerHTML=editMode?'Gem ændringer':'Gem'; }
+  if(editMode) {
+    state.months[sel]={...state.months[sel],label,...getFormData()};
+  } else {
+    state.months.push({id:Date.now().toString(),label,...getFormData()});
+    sel=state.months.length-1;
+  }
+  saveLocal();
+  closeModal();
+  viewMode==='ytd' ? showYTD() : render();
+  toast(editMode?'✅ Ændringer gemt!':'✅ Måned tilføjet!');
 }
 
-async function deleteMonth() {
+function deleteMonth() {
   if(state.months.length<=1) return;
   if(!confirm(`Slet "${state.months[sel].label}"?`)) return;
-  const deleted=state.months.splice(sel,1);
+  state.months.splice(sel,1);
   sel=Math.min(sel,state.months.length-1);
-  try {
-    await ghSave(state);
-    toast('✅ Slettet');
-    showYTD();
-  } catch(e) {
-    state.months.splice(sel,0,...deleted);
-    toast(`❌ ${e.message}`,true);
-  }
+  saveLocal();
+  toast('✅ Slettet');
+  showYTD();
 }
 
-// ── UI ────────────────────────────────────────────────────
-function showLoading(msg='Indlæser...') {
-  document.getElementById('dash').innerHTML=`<div class="loading"><div class="loading-spinner"></div><div>${msg}</div></div>`;
-  document.getElementById('tbl-section').style.display='none';
-  document.getElementById('month-tabs').innerHTML='';
-  document.getElementById('period-title').textContent='';
-  document.getElementById('period-sub').textContent='';
-}
-function showNoConfig() {
-  document.getElementById('dash').innerHTML=`<div class="no-config"><div style="font-size:36px;margin-bottom:12px">⚙️</div><h3>Forbind til GitHub</h3><p>Klik på "Opsætning" for at forbinde til GitHub. Du skal gøre det én gang per computer.</p><button class="btn-save" style="padding:12px 28px;border-radius:10px;border:none;cursor:pointer;font-family:inherit;font-weight:800;font-size:14px" onclick="openSettings()">⚙ Åbn opsætning</button></div>`;
-}
-function showError(msg) {
-  document.getElementById('dash').innerHTML=`<div class="no-config"><div style="font-size:36px;margin-bottom:12px">❌</div><h3>Fejl</h3><p>${msg}</p><button class="btn-save" style="padding:12px 28px;border-radius:10px;border:none;cursor:pointer;font-family:inherit;font-weight:800;font-size:14px" onclick="openSettings()">⚙ Tjek opsætning</button></div>`;
-}
-function toast(msg,err=false,dur=3500) {
+// ── TOAST ─────────────────────────────────────────────────
+function toast(msg,err=false) {
   let t=document.getElementById('toast');
-  if(!t){t=document.createElement('div');t.id='toast';t.style.cssText='position:fixed;bottom:28px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;font-size:14px;font-weight:700;font-family:inherit;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,0.15);transition:opacity 0.3s;white-space:nowrap;max-width:90vw;text-align:center;';document.body.appendChild(t);}
+  if(!t){t=document.createElement('div');t.id='toast';t.style.cssText='position:fixed;bottom:28px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:12px;font-size:14px;font-weight:700;font-family:inherit;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,0.15);transition:opacity 0.3s;white-space:nowrap;';document.body.appendChild(t);}
   t.textContent=msg;t.style.background=err?'#C30151':'#005B73';t.style.color='white';t.style.opacity='1';
-  clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity='0',dur);
+  clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity='0',3000);
 }
 
-// ── SETTINGS ──────────────────────────────────────────────
-function openSettings() {
-  document.getElementById('s-tok').value=gh.token||'';
-  document.getElementById('s-own').value=gh.owner||'grimur-sdu';
-  document.getElementById('s-rep').value=gh.repo||'kpi-dashboard';
-  document.getElementById('s-test-result').textContent='';
-  document.getElementById('settings').classList.add('open');
-}
-function closeSettings(){document.getElementById('settings').classList.remove('open');}
-function closeSettingsOut(e){if(e.target===document.getElementById('settings'))closeSettings();}
-async function testAndSave() {
-  const token=document.getElementById('s-tok').value.trim();
-  const owner=document.getElementById('s-own').value.trim();
-  const repo=document.getElementById('s-rep').value.trim();
-  const result=document.getElementById('s-test-result');
-  const btn=document.getElementById('btn-test');
-  if(!token||!owner||!repo){result.innerHTML='⚠️ Udfyld alle felter';return;}
-  btn.disabled=true;btn.textContent='Tester...';result.innerHTML='⏳ Tester...';
-  try {
-    const res=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/data.json`,{headers:{'Authorization':`Bearer ${token}`,'Accept':'application/vnd.github+json'}});
-    if(res.status===401) throw new Error('Token ugyldigt — opret et nyt');
-    if(res.status===403) throw new Error('Token mangler repo-adgang');
-    if(res.status===404) throw new Error('Repo eller data.json ikke fundet');
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    gh={token,owner,repo};
-    localStorage.setItem('sdu-gh',JSON.stringify(gh));
-    result.innerHTML='✅ Forbindelse OK!';
-    updateGhStatus();
-    setTimeout(async()=>{closeSettings();await init();},800);
-  } catch(e){result.innerHTML=`❌ ${e.message}`;}
-  finally{btn.disabled=false;btn.textContent='Test & gem';}
-}
 
-init();
+// Stubs for removed settings (ingen GitHub API mere)
+function openSettings() {}
+function closeSettings() {}
+function closeSettingsOut() {}
+function testAndSave() {}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
 
 </script>
 </body>
